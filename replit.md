@@ -7,6 +7,7 @@ This is a customer portal application built for ERPNext integration, providing c
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Data integrity: Only use authentic ERPNext data - no demo/sample data allowed.
 
 ## System Architecture
 

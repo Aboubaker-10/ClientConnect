@@ -17,13 +17,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { customerId } = loginSchema.parse(req.body);
 
-      // Try to get customer from ERPNext first
-      let customer = await erpNextService.getCustomer(customerId);
-      
-      if (!customer) {
-        // If not found in ERPNext, check local storage
-        customer = await storage.getCustomer(customerId);
-      }
+      // Only get customer from ERPNext - no fallback to demo data
+      const customer = await erpNextService.getCustomer(customerId);
 
       if (!customer) {
         return res.status(401).json({ 
@@ -142,10 +137,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createOrder(order);
       }
 
-      // If ERPNext returns data, use it; otherwise fall back to local storage
-      const orders = erpOrders.length > 0 
-        ? erpOrders 
-        : await storage.getCustomerOrders(req.customerId, limit);
+      // Only use ERPNext data
+      const orders = erpOrders;
 
       res.json(orders);
     } catch (error) {
@@ -167,10 +160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createInvoice(invoice);
       }
 
-      // If ERPNext returns data, use it; otherwise fall back to local storage
-      const invoices = erpInvoices.length > 0 
-        ? erpInvoices 
-        : await storage.getCustomerInvoices(req.customerId, limit);
+      // Only use ERPNext data
+      const invoices = erpInvoices;
 
       res.json(invoices);
     } catch (error) {
@@ -199,9 +190,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createInvoice(invoice);
       }
 
-      // Get final data (ERPNext if available, otherwise local storage)
-      const orders = erpOrders.length > 0 ? erpOrders : await storage.getCustomerOrders(req.customerId, 5);
-      const invoices = erpInvoices.length > 0 ? erpInvoices : await storage.getCustomerInvoices(req.customerId, 5);
+      // Only use ERPNext data - no fallback to local storage
+      const orders = erpOrders;
+      const invoices = erpInvoices;
 
       // Calculate metrics
       const totalOrders = orders.length;
