@@ -12,8 +12,6 @@ interface Customer {
   balance: string;
   status: string;
   lastLogin: string;
-  phone?: string;
-  email?: string;
   primaryAddress?: string;
   primary_address?: any;
   customerType?: string;
@@ -26,12 +24,13 @@ interface ProfileData {
 }
 
 // Helper function to parse address information
-function parseAddress(primaryAddress: any, customer: Customer) {
-  console.log('Parsing address data:', primaryAddress);
-  console.log('Customer data:', customer);
+function parseAddress(primaryAddress: any) {
+  if (!primaryAddress) return null;
 
-  // If we have primary_address from ERPNext
-  if (primaryAddress && typeof primaryAddress === 'object') {
+  console.log('Parsing address data:', primaryAddress);
+
+  // If it's an object from ERPNext Address API
+  if (typeof primaryAddress === 'object') {
     const addressParts = [
       primaryAddress.address_line1,
       primaryAddress.address_line2,
@@ -41,10 +40,10 @@ function parseAddress(primaryAddress: any, customer: Customer) {
       primaryAddress.pincode
     ].filter(Boolean);
 
-    return {
+    const result = {
       address: addressParts.length > 0 ? addressParts.join(', ') : null,
-      phone: primaryAddress.phone || customer.phone || null,
-      email: primaryAddress.email_id || customer.email || null,
+      phone: primaryAddress.phone || null,
+      email: primaryAddress.email_id || null,
       // Additional fields for more complete display
       address_line1: primaryAddress.address_line1 || null,
       address_line2: primaryAddress.address_line2 || null,
@@ -53,21 +52,17 @@ function parseAddress(primaryAddress: any, customer: Customer) {
       country: primaryAddress.country || null,
       pincode: primaryAddress.pincode || null
     };
-  }
 
-  // If no primary_address but we have customer phone/email, still show contact info
-  if (customer.phone || customer.email) {
-    return {
-      address: null,
-      phone: customer.phone || null,
-      email: customer.email || null,
-      address_line1: null,
-      address_line2: null,
-      city: null,
-      state: null,
-      country: null,
-      pincode: null
-    };
+    // If we have any address field, consider it valid
+    const hasAnyAddressField = addressParts.length > 0 || 
+                               primaryAddress.phone || 
+                               primaryAddress.email_id ||
+                               primaryAddress.address_line1 ||
+                               primaryAddress.city ||
+                               primaryAddress.state ||
+                               primaryAddress.country;
+
+    return hasAnyAddressField ? result : null;
   }
 
   // Fallback for string format
@@ -84,14 +79,8 @@ function parseAddress(primaryAddress: any, customer: Customer) {
     
     return {
       address: cleanAddress || null,
-      phone: phoneMatch ? phoneMatch[1].trim() : customer.phone || null,
-      email: emailMatch ? emailMatch[1].trim() : customer.email || null,
-      address_line1: null,
-      address_line2: null,
-      city: null,
-      state: null,
-      country: null,
-      pincode: null
+      phone: phoneMatch ? phoneMatch[1].trim() : null,
+      email: emailMatch ? emailMatch[1].trim() : null
     };
   }
 
@@ -131,7 +120,7 @@ export default function Profile() {
   }
 
   const { customer } = data!;
-  const addressInfo = parseAddress(customer?.primary_address || customer?.primaryAddress, customer);
+  const addressInfo = parseAddress(customer?.primary_address || customer?.primaryAddress);
 
   return (
     <div className="container mx-auto px-4 py-8">
