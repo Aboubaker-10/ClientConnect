@@ -147,9 +147,9 @@ export class ERPNextService {
 
       const response = await this.api.get('/api/resource/Item', {
         params: {
-          fields: '["name","item_code","item_name","description","standard_rate","currency","stock_qty","item_group","image"]',
+          fields: '["name","item_code","item_name","description","standard_rate","item_group"]',
           filters: '[["disabled","=",0],["is_sales_item","=",1]]',
-          limit_page_length: 100
+          limit_page_length: 20
         }
       });
 
