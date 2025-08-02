@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, MapPin, Phone, Mail, Building2, Globe } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User, MapPin, Phone, Mail, Building2, Globe, ArrowLeft } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 interface Customer {
   id: string;
@@ -44,6 +46,7 @@ function parseAddress(address: string) {
 }
 
 export default function Profile() {
+  const [, setLocation] = useLocation();
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ['/api/customer/profile'],
   });
@@ -81,18 +84,30 @@ export default function Profile() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <User style={{ color: 'var(--portal-primary)' }} className="text-lg" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <User style={{ color: 'var(--portal-primary)' }} className="text-lg" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
+                Customer Profile
+              </h1>
+              <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                Account information and contact details
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-              Customer Profile
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-              Account information and contact details
-            </p>
-          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/dashboard")}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Dashboard</span>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -109,7 +124,7 @@ export default function Profile() {
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
                   Customer ID
                 </label>
-                <p className="text-base font-mono" style={{ color: 'var(--portal-text)' }}>
+                <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                   {customer.id}
                 </p>
               </div>
@@ -185,7 +200,7 @@ export default function Profile() {
                       <Phone className="h-4 w-4" />
                       Phone Number
                     </label>
-                    <p className="text-base font-mono" style={{ color: 'var(--portal-text)' }}>
+                    <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                       {addressInfo.phone}
                     </p>
                   </div>
@@ -200,7 +215,7 @@ export default function Profile() {
                     <Mail className="h-4 w-4" />
                     Email Address
                   </label>
-                  <p className="text-base font-mono" style={{ color: 'var(--portal-text)' }}>
+                  <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                     {addressInfo.email}
                   </p>
                 </div>

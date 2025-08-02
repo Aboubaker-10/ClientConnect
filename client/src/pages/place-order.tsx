@@ -72,9 +72,10 @@ export default function PlaceOrder() {
 
   useEffect(() => {
     if (error) {
-      setLocation("/dashboard");
+      console.log('Place order error:', error);
+      // Don't redirect automatically, let user see the error
     }
-  }, [error, setLocation]);
+  }, [error]);
 
   const filteredProducts = products?.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

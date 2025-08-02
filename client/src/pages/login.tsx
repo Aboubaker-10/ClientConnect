@@ -29,10 +29,6 @@ export default function Login() {
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Login Successful",
-        description: "Welcome to your customer portal!",
-      });
       setLocation("/dashboard");
     },
     onError: (error: any) => {
