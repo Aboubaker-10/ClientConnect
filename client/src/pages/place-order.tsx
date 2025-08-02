@@ -38,6 +38,49 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+// Component to handle product images with fallback
+function ProductImage({ src, alt, className }: { src?: string; alt: string; className: string }) {
+  const [imageError, setImageError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setImageError(false);
+    setIsLoading(true);
+  }, [src]);
+
+  if (!src || imageError) {
+    return (
+      <div 
+        className={`${className} border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50`}
+        style={{ color: 'var(--portal-accent)' }}
+      >
+        <ImageIcon className="h-8 w-8 opacity-50" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      {isLoading && (
+        <div className={`${className} border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 absolute inset-0`}>
+          <div className="animate-pulse h-8 w-8 bg-gray-300 rounded"></div>
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setImageError(true);
+          setIsLoading(false);
+        }}
+        style={isLoading ? { opacity: 0 } : { opacity: 1 }}
+      />
+    </div>
+  );
+}
+
 export default function PlaceOrder() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -325,24 +368,11 @@ export default function PlaceOrder() {
 
                           {/* Product Image */}
                           <div className="w-24 h-24 flex-shrink-0">
-                            {product.image ? (
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                className="w-full h-full object-cover rounded-lg border"
-                                onError={(e) => {
-                                  // Fallback to placeholder if image fails to load
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            <div 
-                              className={`w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center ${product.image ? 'hidden' : 'flex'}`}
-                              style={{ color: 'var(--portal-accent)' }}
-                            >
-                              <ImageIcon className="h-8 w-8 opacity-50" />
-                            </div>
+                            <ProductImage 
+                              src={product.image} 
+                              alt={product.name}
+                              className="w-full h-full object-cover rounded-lg border"
+                            />
                           </div>
                         </div>
                       </CardContent>
