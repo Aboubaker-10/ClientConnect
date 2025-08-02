@@ -270,8 +270,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         image: item.image || null
       }));
       
-      console.log(`Returning ${products.length} products from ERPNext`);
-      res.json(products);
+      // Filter out products with price 0
+      const validProducts = products.filter(product => parseFloat(product.price) > 0);
+      
+      console.log(`Returning ${validProducts.length} products from ERPNext (filtered from ${products.length} total)`);
+      res.json(validProducts);
     } catch (error) {
       console.error('Products fetch error:', error);
       res.status(500).json({ message: "Failed to fetch products" });

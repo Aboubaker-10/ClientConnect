@@ -86,8 +86,9 @@ export default function PlaceOrder() {
   }, [error]);
 
   const filteredProducts = products?.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.itemCode.toLowerCase().includes(searchQuery.toLowerCase())
+    (product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.itemCode.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    parseFloat(product.price) > 0
   ) || [];
 
   const addToCart = (product: Product) => {
