@@ -67,18 +67,25 @@ export class ERPNextService {
 
       const response = await this.api.get('/api/resource/Sales Order', {
         params: {
-          filters: JSON.stringify([['customer', '=', customerId]]),
-          fields: JSON.stringify(['name', 'grand_total', 'status', 'transaction_date', 'delivery_date']),
+          filters: `[["customer","=","${customerId}"]]`,
+          fields: `["name","grand_total","status","transaction_date","delivery_date","customer"]`,
           limit_page_length: limit,
           order_by: 'creation desc',
         },
       });
 
+      console.log('ERPNext Sales Orders response:', JSON.stringify(response.data, null, 2));
+      
+      if (!response.data.data || !Array.isArray(response.data.data)) {
+        console.log('No orders found in response');
+        return [];
+      }
+
       return response.data.data.map((order: any) => ({
         id: order.name,
         customerId,
         orderNumber: order.name,
-        amount: order.grand_total.toString(),
+        amount: order.grand_total ? order.grand_total.toString() : '0.00',
         status: this.mapOrderStatus(order.status),
         orderDate: new Date(order.transaction_date),
         deliveryDate: order.delivery_date ? new Date(order.delivery_date) : null,
@@ -86,6 +93,7 @@ export class ERPNextService {
       }));
     } catch (error) {
       console.error('Error fetching orders from ERPNext:', error);
+      console.error('Error details:', error.response ? error.response.data : error.message);
       return [];
     }
   }
@@ -98,18 +106,25 @@ export class ERPNextService {
 
       const response = await this.api.get('/api/resource/Sales Invoice', {
         params: {
-          filters: JSON.stringify([['customer', '=', customerId]]),
-          fields: JSON.stringify(['name', 'grand_total', 'status', 'posting_date', 'due_date']),
+          filters: `[["customer","=","${customerId}"]]`,
+          fields: `["name","grand_total","status","posting_date","due_date","customer"]`,
           limit_page_length: limit,
           order_by: 'creation desc',
         },
       });
 
+      console.log('ERPNext Sales Invoices response:', JSON.stringify(response.data, null, 2));
+      
+      if (!response.data.data || !Array.isArray(response.data.data)) {
+        console.log('No invoices found in response');
+        return [];
+      }
+
       return response.data.data.map((invoice: any) => ({
         id: invoice.name,
         customerId,
         invoiceNumber: invoice.name,
-        amount: invoice.grand_total.toString(),
+        amount: invoice.grand_total ? invoice.grand_total.toString() : '0.00',
         status: this.mapInvoiceStatus(invoice.status),
         invoiceDate: new Date(invoice.posting_date),
         dueDate: invoice.due_date ? new Date(invoice.due_date) : null,
@@ -117,6 +132,7 @@ export class ERPNextService {
       }));
     } catch (error) {
       console.error('Error fetching invoices from ERPNext:', error);
+      console.error('Error details:', error.response ? error.response.data : error.message);
       return [];
     }
   }
