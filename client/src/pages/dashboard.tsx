@@ -111,9 +111,9 @@ export default function Dashboard() {
   };
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('fr-MA', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'MAD',
     }).format(parseFloat(amount));
   };
 
