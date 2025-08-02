@@ -258,17 +258,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await erpNextService.getItems();
       
       // Transform ERPNext items to our Product format
-      const products = items.map((item: any) => ({
-        id: item.name,
-        name: item.item_name || item.name,
-        itemCode: item.item_code,
-        description: item.description || 'No description available',
-        price: item.standard_rate?.toString() || '0',
-        currency: 'MAD',
-        stockQuantity: 999, // Default stock since stock_qty field not accessible
-        category: item.item_group || 'General',
-        image: item.image || null
-      }));
+      const products = items.map((item: any) => {
+        // Construct full image URL if image path exists
+        let imageUrl = null;
+        if (item.image) {
+          // If image starts with http, use as-is, otherwise prepend ERPNext base URL
+          if (item.image.startsWith('http')) {
+            imageUrl = item.image;
+          } else {
+            // Remove leading slash if present and construct full URL
+            const imagePath = item.image.startsWith('/') ? item.image.slice(1) : item.image;
+            imageUrl = `${process.env.ERPNEXT_URL}/${imagePath}`;
+          }
+        }
+        
+        return {
+          id: item.name,
+          name: item.item_name || item.name,
+          itemCode: item.item_code,
+          description: item.description || 'No description available',
+          price: item.standard_rate?.toString() || '0',
+          currency: 'MAD',
+          stockQuantity: 999, // Default stock since stock_qty field not accessible
+          category: item.item_group || 'General',
+          image: imageUrl
+        };
+      });
       
       // Filter out products with price 0
       const validProducts = products.filter(product => parseFloat(product.price) > 0);
