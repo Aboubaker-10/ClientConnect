@@ -220,6 +220,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer profile endpoint
+  app.get('/api/customer/profile', requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Try to get fresh data from ERPNext
+      try {
+        console.log('Attempting to fetch ERPNext data for customer:', req.customerId);
+        const erpnextCustomer = await erpNextService.getCustomer(req.customerId);
+        console.log('ERPNext customer data:', erpnextCustomer ? 'Found' : 'Not found');
+        if (erpnextCustomer) {
+          // Merge ERPNext data with stored customer data
+          const enrichedCustomer = {
+            ...customer,
+            primaryAddress: erpnextCustomer.primary_address || null,
+            customerType: erpnextCustomer.customer_type || null,
+            defaultCurrency: erpnextCustomer.default_currency || 'MAD',
+            language: erpnextCustomer.language || null,
+          };
+          
+          console.log('Returning enriched customer data with ERPNext fields');
+          res.json({ customer: enrichedCustomer });
+          return;
+        }
+      } catch (erpError) {
+        console.log('ERPNext error for profile:', erpError.message);
+      }
+
+      // Fallback to stored data with default values
+      const fallbackCustomer = {
+        ...customer,
+        primaryAddress: null,
+        customerType: null,
+        defaultCurrency: 'MAD',
+        language: null,
+      };
+      
+      res.json({ customer: fallbackCustomer });
+    } catch (error) {
+      console.error('Profile error:', error);
+      res.status(500).json({ message: "Failed to load profile" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

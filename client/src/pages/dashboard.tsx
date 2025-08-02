@@ -153,6 +153,15 @@ export default function Dashboard() {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => setLocation("/profile")}
+                className="transition duration-200"
+                style={{ color: 'var(--portal-accent)' }}
+              >
+                <UserCog className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
                 className="transition duration-200"
