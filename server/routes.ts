@@ -187,8 +187,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      const orders = await storage.getCustomerOrders(req.customerId, 5);
-      const invoices = await storage.getCustomerInvoices(req.customerId, 5);
+      // Try to fetch fresh data from ERPNext first
+      const erpOrders = await erpNextService.getCustomerOrders(req.customerId, 5);
+      const erpInvoices = await erpNextService.getCustomerInvoices(req.customerId, 5);
+
+      // Store ERPNext data locally for caching
+      for (const order of erpOrders) {
+        await storage.createOrder(order);
+      }
+      for (const invoice of erpInvoices) {
+        await storage.createInvoice(invoice);
+      }
+
+      // Get final data (ERPNext if available, otherwise local storage)
+      const orders = erpOrders.length > 0 ? erpOrders : await storage.getCustomerOrders(req.customerId, 5);
+      const invoices = erpInvoices.length > 0 ? erpInvoices : await storage.getCustomerInvoices(req.customerId, 5);
 
       // Calculate metrics
       const totalOrders = orders.length;
@@ -203,8 +216,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders,
           pendingInvoices: pendingInvoices.length,
           pendingAmount: pendingAmount.toFixed(2),
-          accountBalance: customer.balance,
-          creditLimit: customer.creditLimit,
+          accountBalance: customer.balance || "0.00",
+          creditLimit: customer.creditLimit || "0.00",
         }
       });
     } catch (error) {
