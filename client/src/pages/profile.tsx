@@ -5,7 +5,6 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { User, MapPin, Phone, Mail, Building2, Globe, ArrowLeft } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
 
 interface Customer {
   id: string;
