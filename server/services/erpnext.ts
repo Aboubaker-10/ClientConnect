@@ -42,6 +42,27 @@ export class ERPNextService {
       const response = await this.api.get(`/api/resource/Customer/${customerId}`);
       const customerData = response.data.data;
 
+      // Also get primary address if available
+      let primaryAddress = null;
+      if (customerData.customer_primary_address) {
+        try {
+          const addressResponse = await this.api.get(`/api/resource/Address/${customerData.customer_primary_address}`);
+          const addressData = addressResponse.data.data;
+          primaryAddress = {
+            address_line1: addressData.address_line1,
+            address_line2: addressData.address_line2,
+            city: addressData.city,
+            state: addressData.state,
+            country: addressData.country,
+            pincode: addressData.pincode,
+            phone: addressData.phone,
+            email_id: addressData.email_id
+          };
+        } catch (addressError) {
+          console.log('Could not fetch primary address:', addressError.message);
+        }
+      }
+
       return {
         id: customerData.name,
         name: customerData.customer_name,
@@ -52,6 +73,7 @@ export class ERPNextService {
         creditLimit: customerData.credit_limit || '0.00',
         status: customerData.disabled ? 'Inactive' : 'Active',
         lastLogin: null,
+        primary_address: primaryAddress,
       };
     } catch (error) {
       console.error('Error fetching customer from ERPNext:', error);

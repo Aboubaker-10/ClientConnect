@@ -9,13 +9,15 @@ import {
   ShoppingCart, 
   Package, 
   Search,
-  Banknote
+  Banknote,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -40,6 +42,7 @@ export default function PlaceOrder() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCartModal, setShowCartModal] = useState(false);
 
   const { data: products, isLoading, error } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -57,6 +60,7 @@ export default function PlaceOrder() {
         description: "Your order has been submitted and is being processed.",
       });
       setCart([]);
+      setShowCartModal(false);
       queryClient.invalidateQueries({ queryKey: ["/api/customer/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customer/orders"] });
       setLocation("/orders");
@@ -72,22 +76,27 @@ export default function PlaceOrder() {
 
   useEffect(() => {
     if (error) {
-      console.log('Place order error:', error);
-      // Don't redirect automatically, let user see the error
+      console.error('Products fetch error:', error);
+      toast({
+        title: "Connection Error",
+        description: "Unable to load products. Please check your connection and try again.",
+        variant: "destructive",
+      });
     }
   }, [error]);
 
   const filteredProducts = products?.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.itemCode.toLowerCase().includes(searchQuery.toLowerCase())
+    (product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.itemCode.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    parseFloat(product.price) > 0
   ) || [];
 
   const addToCart = (product: Product) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
+      const existingItem = prev.find(item => item.id === product.id);
+      if (existingItem) {
         return prev.map(item =>
-          item.id === product.id
+          item.id === product.id 
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
@@ -98,10 +107,10 @@ export default function PlaceOrder() {
 
   const removeFromCart = (productId: string) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === productId);
-      if (existing && existing.quantity > 1) {
+      const existingItem = prev.find(item => item.id === productId);
+      if (existingItem && existingItem.quantity > 1) {
         return prev.map(item =>
-          item.id === productId
+          item.id === productId 
             ? { ...item, quantity: item.quantity - 1 }
             : item
         );
@@ -110,23 +119,17 @@ export default function PlaceOrder() {
     });
   };
 
-  const getCartQuantity = (productId: string) => {
-    return cart.find(item => item.id === productId)?.quantity || 0;
-  };
-
-  const cartTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const cartTotal = cart.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
 
   const formatCurrency = (amount: string | number) => {
-    return new Intl.NumberFormat('fr-MA', {
-      style: 'currency',
-      currency: 'MAD',
-    }).format(typeof amount === 'string' ? parseFloat(amount) : amount);
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `${numAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD`;
   };
 
   const handlePlaceOrder = () => {
     if (cart.length === 0) {
       toast({
-        title: "Empty Cart",
+        title: "Cart Empty",
         description: "Please add items to your cart before placing an order.",
         variant: "destructive",
       });
@@ -157,58 +160,63 @@ export default function PlaceOrder() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--portal-background)' }}>
-      {/* Header */}
-      <header className="portal-card border-b sticky top-0 z-40" style={{ borderColor: 'var(--border)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLocation("/dashboard")}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back to Dashboard</span>
-              </Button>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-                Products
-              </h1>
-            </div>
+    <>
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--portal-background)' }}>
+        <header className="portal-card border-b sticky top-0 z-40" style={{ borderColor: 'var(--border)' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLocation("/dashboard")}
+                  className="flex items-center space-x-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Dashboard</span>
+                </Button>
+                <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
+                  Products
+                </h1>
+              </div>
 
-            {/* Cart Summary */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <ShoppingCart className="h-5 w-5" style={{ color: 'var(--portal-accent)' }} />
-                <span className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
-                  {cart.length} items
-                </span>
-                {cartTotal > 0 && (
-                  <Badge variant="secondary">
-                    {formatCurrency(cartTotal)}
-                  </Badge>
-                )}
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center space-x-2"
+                  onClick={() => setShowCartModal(true)}
+                >
+                  <div className="relative">
+                    <ShoppingCart className="h-5 w-5" style={{ color: 'var(--portal-accent)' }} />
+                    {cart.length > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                        {cart.length}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
+                    Cart
+                  </span>
+                  {cartTotal > 0 && (
+                    <Badge variant="secondary">
+                      {formatCurrency(cartTotal)}
+                    </Badge>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Products Section */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Search */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="space-y-6">
             <Card className="portal-card border-portal">
               <CardContent className="pt-6">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'var(--portal-accent)' }} />
                   <Input
-                    placeholder="Search products by name or item code..."
+                    placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -217,24 +225,42 @@ export default function PlaceOrder() {
               </CardContent>
             </Card>
 
-            {/* Products Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.length === 0 ? (
-                <div className="lg:col-span-3 text-center py-12">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
-                  <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                    {searchQuery ? 'No products found' : 'No products available'}
-                  </p>
-                  <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                    {searchQuery ? 'Try adjusting your search terms' : 'Products will appear here when available'}
-                  </p>
+              {error ? (
+                <div className="col-span-full">
+                  <Card className="portal-card border-red-200">
+                    <CardContent className="pt-6 text-center">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
+                      <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
+                        Unable to load products
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                        Please check your connection and try again
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="portal-card border-portal">
+                    <CardContent className="pt-6 text-center">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
+                      <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
+                        No products found
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                        {searchQuery ? 'Try a different search term' : 'No products available at the moment'}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
                 filteredProducts.map((product) => {
-                  const cartQuantity = getCartQuantity(product.id);
+                  const cartQuantity = cart.find(item => item.id === product.id)?.quantity || 0;
+                  
                   return (
-                    <Card key={product.id} className="portal-card border-portal">
-                      <CardContent className="pt-6">
+                    <Card key={product.id} className="portal-card border-portal hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
                         <div className="space-y-4">
                           <div>
                             <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--portal-text)' }}>
@@ -255,11 +281,9 @@ export default function PlaceOrder() {
                               <p className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
                                 {formatCurrency(product.price)}
                               </p>
-                              {product.stockQuantity !== undefined && (
-                                <p className="text-xs" style={{ color: 'var(--portal-accent)' }}>
-                                  Stock: {product.stockQuantity}
-                                </p>
-                              )}
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {product.category}
+                              </Badge>
                             </div>
 
                             {cartQuantity === 0 ? (
@@ -302,77 +326,95 @@ export default function PlaceOrder() {
               )}
             </div>
           </div>
-
-          {/* Cart Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="portal-card border-portal sticky top-24">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ color: 'var(--portal-text)' }}>
-                  <ShoppingCart className="h-5 w-5" />
-                  Order Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cart.length === 0 ? (
-                  <div className="text-center py-8">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-3 opacity-50" style={{ color: 'var(--portal-accent)' }} />
-                    <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                      Your cart is empty
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-3">
-                      {cart.map((item) => (
-                        <div key={item.id} className="flex justify-between items-start space-x-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: 'var(--portal-text)' }}>
-                              {item.name}
-                            </p>
-                            <p className="text-xs" style={{ color: 'var(--portal-accent)' }}>
-                              {item.quantity} × {formatCurrency(item.price)}
-                            </p>
-                          </div>
-                          <p className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
-                            {formatCurrency(parseFloat(item.price) * item.quantity)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold" style={{ color: 'var(--portal-text)' }}>
-                        Total
-                      </span>
-                      <span className="font-bold text-lg" style={{ color: 'var(--portal-text)' }}>
-                        {formatCurrency(cartTotal)}
-                      </span>
-                    </div>
-
-                    <Button
-                      onClick={handlePlaceOrder}
-                      disabled={placeOrderMutation.isPending}
-                      className="w-full"
-                      style={{ backgroundColor: 'var(--portal-primary)' }}
-                    >
-                      {placeOrderMutation.isPending ? (
-                        'Placing Order...'
-                      ) : (
-                        <>
-                          <Banknote className="h-4 w-4 mr-2" />
-                          Place Order
-                        </>
-                      )}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
-    </div>
+
+      <Dialog open={showCartModal} onOpenChange={setShowCartModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Order Summary
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {cart.length === 0 ? (
+              <div className="text-center py-8">
+                <ShoppingCart className="h-8 w-8 mx-auto mb-3 opacity-50" style={{ color: 'var(--portal-accent)' }} />
+                <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                  Your cart is empty
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between items-start space-x-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--portal-text)' }}>
+                          {item.name}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--portal-accent)' }}>
+                          {item.quantity} × {formatCurrency(item.price)}
+                        </p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => removeFromCart(item.id)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-xs w-8 text-center">{item.quantity}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addToCart(item)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
+                        {formatCurrency(parseFloat(item.price) * item.quantity)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold" style={{ color: 'var(--portal-text)' }}>
+                    Total
+                  </span>
+                  <span className="font-bold text-lg" style={{ color: 'var(--portal-text)' }}>
+                    {formatCurrency(cartTotal)}
+                  </span>
+                </div>
+
+                <Button
+                  onClick={handlePlaceOrder}
+                  disabled={placeOrderMutation.isPending}
+                  className="w-full"
+                  style={{ backgroundColor: 'var(--portal-primary)' }}
+                >
+                  {placeOrderMutation.isPending ? (
+                    'Placing Order...'
+                  ) : (
+                    <>
+                      <Banknote className="h-4 w-4 mr-2" />
+                      Place Order
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

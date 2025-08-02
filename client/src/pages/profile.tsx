@@ -23,26 +23,47 @@ interface ProfileData {
 }
 
 // Helper function to parse address information
-function parseAddress(address: string) {
-  if (!address) return null;
-  
-  // Extract phone and email using regex
-  const phoneMatch = address.match(/Phone:\s*([+\d\s-]+)/);
-  const emailMatch = address.match(/Email:\s*([^\s,]+)/);
-  
-  // Remove phone and email from address to get clean address
-  let cleanAddress = address
-    .replace(/,\s*Phone:[^,]+/g, '')
-    .replace(/,\s*Email:[^,]+/g, '')
-    .replace(/,\s*,/g, ',')
-    .replace(/,\s*$/, '')
-    .trim();
-  
-  return {
-    address: cleanAddress,
-    phone: phoneMatch ? phoneMatch[1].trim() : null,
-    email: emailMatch ? emailMatch[1].trim() : null
-  };
+function parseAddress(primaryAddress: any) {
+  if (!primaryAddress) return null;
+
+  // If it's an object from ERPNext Address API
+  if (typeof primaryAddress === 'object') {
+    const addressParts = [
+      primaryAddress.address_line1,
+      primaryAddress.address_line2,
+      primaryAddress.city,
+      primaryAddress.state,
+      primaryAddress.country,
+      primaryAddress.pincode
+    ].filter(Boolean);
+
+    return {
+      address: addressParts.length > 0 ? addressParts.join(', ') : null,
+      phone: primaryAddress.phone || null,
+      email: primaryAddress.email_id || null
+    };
+  }
+
+  // Fallback for string format
+  if (typeof primaryAddress === 'string') {
+    const phoneMatch = primaryAddress.match(/Phone:\s*([+\d\s-]+)/);
+    const emailMatch = primaryAddress.match(/Email:\s*([^\s,]+)/);
+    
+    let cleanAddress = primaryAddress
+      .replace(/,\s*Phone:[^,]+/g, '')
+      .replace(/,\s*Email:[^,]+/g, '')
+      .replace(/,\s*,/g, ',')
+      .replace(/,\s*$/, '')
+      .trim();
+    
+    return {
+      address: cleanAddress,
+      phone: phoneMatch ? phoneMatch[1].trim() : null,
+      email: emailMatch ? emailMatch[1].trim() : null
+    };
+  }
+
+  return null;
 }
 
 export default function Profile() {
@@ -78,7 +99,7 @@ export default function Profile() {
   }
 
   const { customer } = data!;
-  const addressInfo = customer?.primaryAddress ? parseAddress(customer.primaryAddress) : null;
+  const addressInfo = parseAddress(customer?.primary_address || customer?.primaryAddress);
 
   return (
     <div className="container mx-auto px-4 py-8">
