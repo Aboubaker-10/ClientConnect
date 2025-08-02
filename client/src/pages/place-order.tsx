@@ -11,8 +11,7 @@ import {
   Search,
   Banknote,
   X,
-  ImageIcon,
-  Lightbulb
+  ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,135 +36,6 @@ interface Product {
 
 interface CartItem extends Product {
   quantity: number;
-}
-
-// Component to handle product images with fallback
-function ProductImage({ src, alt, className }: { src?: string; alt: string; className: string }) {
-  const [imageError, setImageError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    setImageError(false);
-    setIsLoading(true);
-  }, [src]);
-
-  if (!src || imageError) {
-    return (
-      <div 
-        className={`${className} border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50`}
-        style={{ color: 'var(--portal-accent)' }}
-      >
-        <ImageIcon className="h-8 w-8 opacity-50" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full h-full">
-      {isLoading && (
-        <div className={`${className} border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 absolute inset-0`}>
-          <div className="animate-pulse h-8 w-8 bg-gray-300 rounded"></div>
-        </div>
-      )}
-      <img
-        src={src}
-        alt={alt}
-        className={className}
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          setImageError(true);
-          setIsLoading(false);
-        }}
-        style={isLoading ? { opacity: 0 } : { opacity: 1 }}
-      />
-    </div>
-  );
-}
-
-// Fuzzy search utilities
-function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = str1.toLowerCase();
-  const s2 = str2.toLowerCase();
-  
-  // Exact match
-  if (s1 === s2) return 1;
-  
-  // Contains match
-  if (s1.includes(s2) || s2.includes(s1)) return 0.9;
-  
-  // Tokenized match
-  const tokens1 = s1.split(/\W+/);
-  const tokens2 = s2.split(/\W+/);
-  const intersection = tokens1.filter(token => tokens2.includes(token));
-  if (intersection.length > 0) return 0.8 + (intersection.length / Math.min(tokens1.length, tokens2.length)) * 0.1;
-  
-  // Levenshtein distance for fuzzy matching
-  const matrix = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
-  
-  for (let i = 0; i <= s1.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= s2.length; j++) matrix[j][0] = j;
-  
-  for (let j = 1; j <= s2.length; j++) {
-    for (let i = 1; i <= s1.length; i++) {
-      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1,
-        matrix[j - 1][i] + 1,
-        matrix[j - 1][i - 1] + cost
-      );
-    }
-  }
-  
-  const maxLength = Math.max(s1.length, s2.length);
-  return 1 - matrix[s2.length][s1.length] / maxLength;
-}
-
-function smartProductSearch(products: Product[], query: string) {
-  // Universal query support for exact or code matches
-  if (!query.trim()) return { matches: products, suggestions: [] };
-  if (!query.trim()) return { matches: products, suggestions: [] };
-  
-  const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
-  const scored = products.map(product => {
-    let maxScore = 0;
-    
-    // Score against different product fields
-    const searchableText = [
-      product.name,
-      product.itemCode,
-      product.description || '',
-      product.category || ''
-    ].join(' ').toLowerCase();
-    
-    // Check for exact term matches first
-    for (const term of searchTerms) {
-      if (searchableText.includes(term)) {
-        maxScore = Math.max(maxScore, 0.9);
-      }
-    }
-    
-    // If no exact matches, try fuzzy matching
-    if (maxScore < 0.9) {
-      for (const term of searchTerms) {
-        const nameScore = calculateSimilarity(term, product.name);
-        const codeScore = calculateSimilarity(term, product.itemCode);
-        const descScore = product.description ? calculateSimilarity(term, product.description) : 0;
-        
-        maxScore = Math.max(maxScore, nameScore * 0.7, codeScore * 0.8, descScore * 0.5);
-      }
-    }
-    
-    return { product, score: maxScore };
-  });
-  
-  // Split into good matches and potential suggestions
-  const goodMatches = scored.filter(item => item.score >= 0.3).sort((a, b) => b.score - a.score);
-  const suggestions = scored.filter(item => item.score >= 0.15 && item.score < 0.3).sort((a, b) => b.score - a.score).slice(0, 3);
-  
-  return {
-    matches: goodMatches.map(item => item.product),
-    suggestions: suggestions.map(item => item.product)
-  };
 }
 
 export default function PlaceOrder() {
@@ -216,12 +86,11 @@ export default function PlaceOrder() {
     }
   }, [error]);
 
-  const searchResults = products ? smartProductSearch(
-    products.filter(product => parseFloat(product.price) > 0),
-    searchQuery
-  ) : { matches: [], suggestions: [] };
-
-  const { matches: filteredProducts, suggestions } = searchResults;
+  const filteredProducts = products?.filter(product =>
+    (product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.itemCode.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    parseFloat(product.price) > 0
+  ) || [];
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -357,203 +226,130 @@ export default function PlaceOrder() {
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
-              {/* Suggestions for similar products */}
-              {searchQuery && suggestions.length > 0 && filteredProducts.length === 0 && (
-                <Card className="portal-card border-yellow-200 bg-yellow-50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <Lightbulb className="h-5 w-5 text-yellow-600 mt-1" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-yellow-800 mb-2">
-                          We couldn't find "{searchQuery}", but here are some similar products:
-                        </p>
-                        <div className="space-y-2">
-                          {suggestions.map((product) => (
-                            <div key={product.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                                <p className="text-xs text-gray-500">{product.itemCode}</p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSearchQuery(product.name);
-                                }}
-                                className="text-xs"
-                              >
-                                Search this
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Suggestions when there are some matches but also similar products */}
-              {searchQuery && suggestions.length > 0 && filteredProducts.length > 0 && (
-                <Card className="portal-card border-blue-200 bg-blue-50">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Lightbulb className="h-4 w-4 text-blue-600" />
-                      <p className="text-sm font-medium text-blue-800">
-                        You might also be interested in:
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {error ? (
+                <div className="col-span-full">
+                  <Card className="portal-card border-red-200">
+                    <CardContent className="pt-6 text-center">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
+                      <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
+                        Unable to load products
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.slice(0, 2).map((product) => (
-                        <Button
-                          key={product.id}
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSearchQuery(product.name)}
-                          className="text-xs text-blue-700 border-blue-300 hover:bg-blue-100"
-                        >
-                          {product.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {error ? (
-                  <div className="col-span-full">
-                    <Card className="portal-card border-red-200">
-                      <CardContent className="pt-6 text-center">
-                        <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
-                        <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                          Unable to load products
-                        </p>
-                        <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                          Please check your connection and try again
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : filteredProducts.length === 0 && !searchQuery ? (
-                  <div className="col-span-full">
-                    <Card className="portal-card border-portal">
-                      <CardContent className="pt-6 text-center">
-                        <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
-                        <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                          No products available
-                        </p>
-                        <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                          No products available at the moment
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : filteredProducts.length === 0 && searchQuery && suggestions.length === 0 ? (
-                  <div className="col-span-full">
-                    <Card className="portal-card border-portal">
-                      <CardContent className="pt-6 text-center">
-                        <Search className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
-                        <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                          No products found for "{searchQuery}"
-                        </p>
-                        <p className="text-sm mb-4" style={{ color: 'var(--portal-accent)' }}>
-                          Try using different keywords or check the spelling
-                        </p>
-                        <Button
-                          onClick={() => setSearchQuery('')}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Clear search
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
+                      <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                        Please check your connection and try again
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="portal-card border-portal">
+                    <CardContent className="pt-6 text-center">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" style={{ color: 'var(--portal-accent)' }} />
+                      <p className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
+                        No products found
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
+                        {searchQuery ? 'Try a different search term' : 'No products available at the moment'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
                 filteredProducts.map((product) => {
-                    const cartQuantity = cart.find(item => item.id === product.id)?.quantity || 0;
-                    
-                    return (
-                      <Card key={product.id} className="portal-card border-portal hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex space-x-4">
-                            {/* Product Information */}
-                            <div className="flex-1 space-y-4">
-                              <div>
-                                <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--portal-text)' }}>
-                                  {product.name}
-                                </h3>
-                                <p className="text-sm font-mono" style={{ color: 'var(--portal-accent)' }}>
-                                  {product.itemCode}
+                  const cartQuantity = cart.find(item => item.id === product.id)?.quantity || 0;
+                  
+                  return (
+                    <Card key={product.id} className="portal-card border-portal hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex space-x-4">
+                          {/* Product Information */}
+                          <div className="flex-1 space-y-4">
+                            <div>
+                              <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--portal-text)' }}>
+                                {product.name}
+                              </h3>
+                              <p className="text-sm font-mono" style={{ color: 'var(--portal-accent)' }}>
+                                {product.itemCode}
+                              </p>
+                              {product.description && (
+                                <p className="text-sm mt-2" style={{ color: 'var(--portal-accent)' }}>
+                                  {product.description}
                                 </p>
-                                {product.description && (
-                                  <p className="text-sm mt-2" style={{ color: 'var(--portal-accent)' }}>
-                                    {product.description}
-                                  </p>
-                                )}
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
+                                  {formatCurrency(product.price)}
+                                </p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {product.category}
+                                </Badge>
                               </div>
 
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                                    {formatCurrency(product.price)}
-                                  </p>
-                                  <Badge variant="outline" className="text-xs mt-1">
-                                    {product.category}
-                                  </Badge>
-                                </div>
-
-                                {cartQuantity === 0 ? (
+                              {cartQuantity === 0 ? (
+                                <Button
+                                  onClick={() => addToCart(product)}
+                                  size="sm"
+                                  style={{ backgroundColor: 'var(--portal-primary)' }}
+                                  className="text-white hover:opacity-90"
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add
+                                </Button>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    onClick={() => removeFromCart(product.id)}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium">
+                                    {cartQuantity}
+                                  </span>
                                   <Button
                                     onClick={() => addToCart(product)}
                                     size="sm"
-                                    style={{ backgroundColor: 'var(--portal-primary)' }}
-                                    className="text-white hover:opacity-90"
+                                    variant="outline"
                                   >
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Add
+                                    <Plus className="h-4 w-4" />
                                   </Button>
-                                ) : (
-                                  <div className="flex items-center space-x-2">
-                                    <Button
-                                      onClick={() => removeFromCart(product.id)}
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium">
-                                      {cartQuantity}
-                                    </span>
-                                    <Button
-                                      onClick={() => addToCart(product)}
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Product Image */}
-                            <div className="w-24 h-24 flex-shrink-0">
-                              <ProductImage 
-                                src={product.image} 
-                                alt={product.name}
-                                className="w-full h-full object-cover rounded-lg border"
-                              />
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-              </div>
+
+                          {/* Product Image */}
+                          <div className="w-24 h-24 flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded-lg border"
+                                onError={(e) => {
+                                  // Fallback to placeholder if image fails to load
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center ${product.image ? 'hidden' : 'flex'}`}
+                              style={{ color: 'var(--portal-accent)' }}
+                            >
+                              <ImageIcon className="h-8 w-8 opacity-50" />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
