@@ -13,6 +13,7 @@ interface Customer {
   status: string;
   lastLogin: string;
   primaryAddress?: string;
+  primary_address?: any;
   customerType?: string;
   defaultCurrency?: string;
   language?: string;

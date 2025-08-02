@@ -218,6 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Merge ERPNext data with stored customer data
           const enrichedCustomer = {
             ...customer,
+            primary_address: erpnextCustomer.primary_address || null,
             primaryAddress: erpnextCustomer.primary_address || null,
             customerType: erpnextCustomer.customer_type || null,
             defaultCurrency: erpnextCustomer.default_currency || 'MAD',
@@ -235,6 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fallback to stored data with default values
       const fallbackCustomer = {
         ...customer,
+        primary_address: null,
         primaryAddress: null,
         customerType: null,
         defaultCurrency: 'MAD',

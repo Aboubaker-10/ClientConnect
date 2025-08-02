@@ -13,6 +13,7 @@ export const customers = pgTable("customers", {
   creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }).default("0.00"),
   status: text("status").default("Active"),
   lastLogin: timestamp("last_login"),
+  primary_address: jsonb("primary_address"),
 });
 
 export const orders = pgTable("orders", {
