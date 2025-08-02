@@ -19,7 +19,7 @@ function Router() {
       <Route path="/orders" component={Orders} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/profile" component={Profile} />
-      <Route path="/place-order" component={PlaceOrder} />
+      <Route path="/products" component={PlaceOrder} />
       <Route component={NotFound} />
     </Switch>
   );

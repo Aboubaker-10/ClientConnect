@@ -176,7 +176,7 @@ export default function PlaceOrder() {
             
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-                Place Order
+                Products
               </h1>
             </div>
 

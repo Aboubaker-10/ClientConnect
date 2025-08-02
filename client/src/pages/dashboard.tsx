@@ -435,10 +435,10 @@ export default function Dashboard() {
               <Button 
                 variant="outline" 
                 className="flex items-center justify-center space-x-2 p-4 h-auto"
-                onClick={() => setLocation("/place-order")}
+                onClick={() => setLocation("/products")}
               >
                 <Package style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Place Order</span>
+                <span className="text-sm font-medium">Browse Products</span>
               </Button>
             </div>
           </CardContent>

@@ -252,9 +252,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products endpoint for place order page
   app.get('/api/products', requireAuth, async (req, res) => {
     try {
-      // For now, return empty array - will be populated when ERPNext Items API is integrated
-      // This prevents the Place Order page from crashing
-      res.json([]);
+      console.log('Fetching products from ERPNext...');
+      const items = await erpNextService.getItems();
+      
+      // Transform ERPNext items to our Product format
+      const products = items.map((item: any) => ({
+        id: item.name,
+        name: item.item_name || item.name,
+        itemCode: item.item_code,
+        description: item.description || 'No description available',
+        price: item.standard_rate?.toString() || '0',
+        currency: item.currency || 'MAD',
+        stockQuantity: item.stock_qty || 0,
+        category: item.item_group || 'General',
+        image: item.image || null
+      }));
+      
+      console.log(`Returning ${products.length} products from ERPNext`);
+      res.json(products);
     } catch (error) {
       console.error('Products fetch error:', error);
       res.status(500).json({ message: "Failed to fetch products" });

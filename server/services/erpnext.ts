@@ -139,6 +139,28 @@ export class ERPNextService {
     }
   }
 
+  async getItems(): Promise<any[]> {
+    try {
+      if (!this.baseUrl) {
+        throw new Error('ERPNext URL not configured');
+      }
+
+      const response = await this.api.get('/api/resource/Item', {
+        params: {
+          fields: '["name","item_code","item_name","description","standard_rate","currency","stock_qty","item_group","image"]',
+          filters: '[["disabled","=",0],["is_sales_item","=",1]]',
+          limit_page_length: 100
+        }
+      });
+
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching items from ERPNext:', error);
+      console.error('Error details:', error.response ? error.response.data : error.message);
+      return [];
+    }
+  }
+
   private mapOrderStatus(erpStatus: string): string {
     const statusMap: { [key: string]: string } = {
       'Draft': 'Draft',
