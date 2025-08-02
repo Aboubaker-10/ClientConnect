@@ -69,14 +69,14 @@ function parseAddress(primaryAddress: any) {
   if (typeof primaryAddress === 'string') {
     const phoneMatch = primaryAddress.match(/Phone:\s*([+\d\s-]+)/);
     const emailMatch = primaryAddress.match(/Email:\s*([^\s,]+)/);
-    
+
     let cleanAddress = primaryAddress
       .replace(/,\s*Phone:[^,]+/g, '')
       .replace(/,\s*Email:[^,]+/g, '')
       .replace(/,\s*,/g, ',')
       .replace(/,\s*$/, '')
       .trim();
-    
+
     return {
       address: cleanAddress || null,
       phone: phoneMatch ? phoneMatch[1].trim() : null,
@@ -140,7 +140,7 @@ export default function Profile() {
               </p>
             </div>
           </div>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -170,9 +170,9 @@ export default function Profile() {
                   {customer.id}
                 </p>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
                   Company Name
@@ -181,9 +181,9 @@ export default function Profile() {
                   {customer.name}
                 </p>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
                   Account Status
@@ -197,9 +197,9 @@ export default function Profile() {
                   </Badge>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
                   Default Currency
@@ -293,7 +293,7 @@ export default function Profile() {
                       <Separator />
                     </>
                   )}
-                  
+
                   {addressInfo.phone && (
                     <>
                       <div>
@@ -308,7 +308,7 @@ export default function Profile() {
                       <Separator />
                     </>
                   )}
-                  
+
                   {addressInfo.email && (
                     <div>
                       <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
@@ -322,7 +322,7 @@ export default function Profile() {
                   )}
                 </>
               )}
-              
+
               {!addressInfo && (
                 <div className="text-center py-8">
                   <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--portal-accent)' }} />
@@ -353,7 +353,7 @@ export default function Profile() {
                   {new Date(customer.lastLogin).toLocaleString()}
                 </p>
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
                   Language Preference
