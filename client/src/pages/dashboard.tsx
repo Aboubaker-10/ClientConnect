@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 import { 
   Building, 
   Wallet, 
@@ -62,10 +63,11 @@ export default function Dashboard() {
     },
   });
 
-  if (error) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (error) {
+      setLocation("/");
+    }
+  }, [error, setLocation]);
 
   if (isLoading || !dashboardData) {
     return (

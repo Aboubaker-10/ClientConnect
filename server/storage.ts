@@ -33,6 +33,75 @@ export class MemStorage implements IStorage {
     this.orders = new Map();
     this.invoices = new Map();
     this.sessions = new Map();
+    
+    // Add sample customer for testing
+    this.initializeSampleData();
+  }
+
+  private initializeSampleData() {
+    // Sample customer
+    const sampleCustomer: Customer = {
+      id: "Jamal",
+      name: "Jamal Ahmed",
+      company: "Jiex Trading Company",
+      email: "jamal@jiextrading.com",
+      phone: "+1-555-0123",
+      balance: "2500.00",
+      creditLimit: "10000.00",
+      status: "Active",
+      lastLogin: null,
+    };
+    this.customers.set(sampleCustomer.id, sampleCustomer);
+
+    // Sample orders
+    const sampleOrders: Order[] = [
+      {
+        id: "ORD-001",
+        customerId: "Jamal",
+        orderNumber: "SO-2024-001",
+        amount: "1500.00",
+        status: "Delivered",
+        orderDate: new Date("2024-01-15"),
+        deliveryDate: new Date("2024-01-22"),
+        items: null,
+      },
+      {
+        id: "ORD-002",
+        customerId: "Jamal",
+        orderNumber: "SO-2024-002",
+        amount: "850.00",
+        status: "In Transit",
+        orderDate: new Date("2024-01-28"),
+        deliveryDate: new Date("2024-02-05"),
+        items: null,
+      },
+    ];
+    sampleOrders.forEach(order => this.orders.set(order.id, order));
+
+    // Sample invoices
+    const sampleInvoices: Invoice[] = [
+      {
+        id: "INV-001",
+        customerId: "Jamal",
+        invoiceNumber: "INV-2024-001",
+        amount: "1500.00",
+        status: "Paid",
+        invoiceDate: new Date("2024-01-15"),
+        dueDate: new Date("2024-02-15"),
+        paidDate: new Date("2024-01-20"),
+      },
+      {
+        id: "INV-002",
+        customerId: "Jamal",
+        invoiceNumber: "INV-2024-002",
+        amount: "850.00",
+        status: "Pending",
+        invoiceDate: new Date("2024-01-28"),
+        dueDate: new Date("2024-02-28"),
+        paidDate: null,
+      },
+    ];
+    sampleInvoices.forEach(invoice => this.invoices.set(invoice.id, invoice));
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
