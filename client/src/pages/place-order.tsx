@@ -91,7 +91,13 @@ function calculateSimilarity(str1: string, str2: string): number {
   if (s1 === s2) return 1;
   
   // Contains match
-  if (s1.includes(s2) || s2.includes(s1)) return 0.8;
+  if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+  
+  // Tokenized match
+  const tokens1 = s1.split(/\W+/);
+  const tokens2 = s2.split(/\W+/);
+  const intersection = tokens1.filter(token => tokens2.includes(token));
+  if (intersection.length > 0) return 0.8 + (intersection.length / Math.min(tokens1.length, tokens2.length)) * 0.1;
   
   // Levenshtein distance for fuzzy matching
   const matrix = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
@@ -115,6 +121,8 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 function smartProductSearch(products: Product[], query: string) {
+  // Universal query support for exact or code matches
+  if (!query.trim()) return { matches: products, suggestions: [] };
   if (!query.trim()) return { matches: products, suggestions: [] };
   
   const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
