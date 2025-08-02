@@ -196,8 +196,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate metrics using ALL data for accurate totals
       const totalOrders = allOrders.length;
-      const pendingInvoices = allInvoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
+      const pendingInvoices = allInvoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue' || inv.status === 'Draft');
+      const paidInvoices = allInvoices.filter(inv => inv.status === 'Paid');
       const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
       res.json({
         customer,
@@ -208,7 +210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingInvoices: pendingInvoices.length,
           pendingAmount: pendingAmount.toFixed(2),
           accountBalance: customer.balance || "0.00",
-          creditLimit: customer.creditLimit || "0.00",
+          totalPaid: paidAmount.toFixed(2),
+          totalUnpaid: pendingAmount.toFixed(2),
         }
       });
     } catch (error) {

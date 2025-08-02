@@ -32,7 +32,8 @@ interface DashboardData {
     pendingInvoices: number;
     pendingAmount: string;
     accountBalance: string;
-    creditLimit: string;
+    totalPaid: string;
+    totalUnpaid: string;
   };
 }
 
@@ -227,15 +228,15 @@ export default function Dashboard() {
                 )}
               </div>
               <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Pending Invoices
+                Total Unpaid
               </h3>
               <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {formatCurrency(metrics.pendingAmount)}
+                {formatCurrency(metrics.totalUnpaid)}
               </p>
             </CardContent>
           </Card>
 
-          {/* Credit Limit */}
+          {/* Total Paid */}
           <Card className="portal-card border-portal">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
@@ -244,10 +245,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Credit Limit
+                Total Paid
               </h3>
               <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {formatCurrency(metrics.creditLimit)}
+                {formatCurrency(metrics.totalPaid)}
               </p>
             </CardContent>
           </Card>
