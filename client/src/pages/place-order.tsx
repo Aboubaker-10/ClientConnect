@@ -10,7 +10,8 @@ import {
   Package, 
   Search,
   Banknote,
-  X
+  X,
+  ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -261,62 +262,87 @@ export default function PlaceOrder() {
                   return (
                     <Card key={product.id} className="portal-card border-portal hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--portal-text)' }}>
-                              {product.name}
-                            </h3>
-                            <p className="text-sm font-mono" style={{ color: 'var(--portal-accent)' }}>
-                              {product.itemCode}
-                            </p>
-                            {product.description && (
-                              <p className="text-sm mt-2" style={{ color: 'var(--portal-accent)' }}>
-                                {product.description}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between">
+                        <div className="flex space-x-4">
+                          {/* Product Information */}
+                          <div className="flex-1 space-y-4">
                             <div>
-                              <p className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                                {formatCurrency(product.price)}
+                              <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--portal-text)' }}>
+                                {product.name}
+                              </h3>
+                              <p className="text-sm font-mono" style={{ color: 'var(--portal-accent)' }}>
+                                {product.itemCode}
                               </p>
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {product.category}
-                              </Badge>
+                              {product.description && (
+                                <p className="text-sm mt-2" style={{ color: 'var(--portal-accent)' }}>
+                                  {product.description}
+                                </p>
+                              )}
                             </div>
 
-                            {cartQuantity === 0 ? (
-                              <Button
-                                onClick={() => addToCart(product)}
-                                size="sm"
-                                style={{ backgroundColor: 'var(--portal-primary)' }}
-                                className="text-white hover:opacity-90"
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Add
-                              </Button>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  onClick={() => removeFromCart(product.id)}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </Button>
-                                <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium">
-                                  {cartQuantity}
-                                </span>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
+                                  {formatCurrency(product.price)}
+                                </p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {product.category}
+                                </Badge>
+                              </div>
+
+                              {cartQuantity === 0 ? (
                                 <Button
                                   onClick={() => addToCart(product)}
                                   size="sm"
-                                  variant="outline"
+                                  style={{ backgroundColor: 'var(--portal-primary)' }}
+                                  className="text-white hover:opacity-90"
                                 >
-                                  <Plus className="h-4 w-4" />
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add
                                 </Button>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    onClick={() => removeFromCart(product.id)}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium">
+                                    {cartQuantity}
+                                  </span>
+                                  <Button
+                                    onClick={() => addToCart(product)}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Product Image */}
+                          <div className="w-24 h-24 flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded-lg border"
+                                onError={(e) => {
+                                  // Fallback to placeholder if image fails to load
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center ${product.image ? 'hidden' : 'flex'}`}
+                              style={{ color: 'var(--portal-accent)' }}
+                            >
+                              <ImageIcon className="h-8 w-8 opacity-50" />
+                            </div>
                           </div>
                         </div>
                       </CardContent>

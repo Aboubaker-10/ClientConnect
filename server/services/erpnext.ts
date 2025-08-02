@@ -169,7 +169,7 @@ export class ERPNextService {
 
       const response = await this.api.get('/api/resource/Item', {
         params: {
-          fields: '["name","item_code","item_name","description","standard_rate","item_group"]',
+          fields: '["name","item_code","item_name","description","standard_rate","item_group","image"]',
           filters: '[["disabled","=",0],["is_sales_item","=",1]]',
           limit_page_length: 0  // 0 means no limit - get all items
         }
