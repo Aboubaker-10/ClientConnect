@@ -266,6 +266,7 @@ export default function Dashboard() {
                     size="sm"
                     className="text-sm font-medium transition duration-200"
                     style={{ color: 'var(--portal-primary)' }}
+                    onClick={() => setLocation("/orders")}
                   >
                     View All
                   </Button>
@@ -357,6 +358,7 @@ export default function Dashboard() {
                     size="sm"
                     className="text-sm font-medium transition duration-200"
                     style={{ color: 'var(--portal-primary)' }}
+                    onClick={() => setLocation("/invoices")}
                   >
                     View All
                   </Button>
