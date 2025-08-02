@@ -59,25 +59,26 @@ export class ERPNextService {
     }
   }
 
-  async getCustomerOrders(customerId: string, limit: number = 10): Promise<Order[]> {
+  async getCustomerOrders(customerId: string, limit: number = 0): Promise<Order[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('ERPNext URL not configured');
       }
 
-      const response = await this.api.get('/api/resource/Sales Order', {
-        params: {
-          filters: `[["customer","=","${customerId}"]]`,
-          fields: `["name","grand_total","status","transaction_date","delivery_date","customer"]`,
-          limit_page_length: limit,
-          order_by: 'creation desc',
-        },
-      });
+      const params: any = {
+        filters: `[["customer","=","${customerId}"]]`,
+        fields: `["name","grand_total","status","transaction_date","delivery_date","customer"]`,
+        order_by: 'creation desc',
+      };
 
-      console.log('ERPNext Sales Orders response:', JSON.stringify(response.data, null, 2));
-      
+      // Only add limit if it's greater than 0 (for recent orders)
+      if (limit > 0) {
+        params.limit_page_length = limit;
+      }
+
+      const response = await this.api.get('/api/resource/Sales Order', { params });
+
       if (!response.data.data || !Array.isArray(response.data.data)) {
-        console.log('No orders found in response');
         return [];
       }
 
@@ -98,25 +99,26 @@ export class ERPNextService {
     }
   }
 
-  async getCustomerInvoices(customerId: string, limit: number = 10): Promise<Invoice[]> {
+  async getCustomerInvoices(customerId: string, limit: number = 0): Promise<Invoice[]> {
     try {
       if (!this.baseUrl) {
         throw new Error('ERPNext URL not configured');
       }
 
-      const response = await this.api.get('/api/resource/Sales Invoice', {
-        params: {
-          filters: `[["customer","=","${customerId}"]]`,
-          fields: `["name","grand_total","status","posting_date","due_date","customer"]`,
-          limit_page_length: limit,
-          order_by: 'creation desc',
-        },
-      });
+      const params: any = {
+        filters: `[["customer","=","${customerId}"]]`,
+        fields: `["name","grand_total","status","posting_date","due_date","customer"]`,
+        order_by: 'creation desc',
+      };
 
-      console.log('ERPNext Sales Invoices response:', JSON.stringify(response.data, null, 2));
-      
+      // Only add limit if it's greater than 0 (for recent invoices)
+      if (limit > 0) {
+        params.limit_page_length = limit;
+      }
+
+      const response = await this.api.get('/api/resource/Sales Invoice', { params });
+
       if (!response.data.data || !Array.isArray(response.data.data)) {
-        console.log('No invoices found in response');
         return [];
       }
 

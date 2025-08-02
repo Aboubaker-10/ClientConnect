@@ -129,8 +129,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       
-      // Try to get fresh data from ERPNext
-      const erpOrders = await erpNextService.getCustomerOrders(req.customerId, limit);
+      // Get ALL orders from ERPNext (no limit for "View All" pages)
+      const erpOrders = await erpNextService.getCustomerOrders(req.customerId, 0);
       
       // Store orders locally for caching
       for (const order of erpOrders) {
@@ -152,8 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       
-      // Try to get fresh data from ERPNext
-      const erpInvoices = await erpNextService.getCustomerInvoices(req.customerId, limit);
+      // Get ALL invoices from ERPNext (no limit for "View All" pages)
+      const erpInvoices = await erpNextService.getCustomerInvoices(req.customerId, 0);
       
       // Store invoices locally for caching
       for (const invoice of erpInvoices) {
@@ -178,31 +178,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      // Try to fetch fresh data from ERPNext first
-      const erpOrders = await erpNextService.getCustomerOrders(req.customerId, 5);
-      const erpInvoices = await erpNextService.getCustomerInvoices(req.customerId, 5);
+      // Get ALL orders and invoices first
+      const allOrders = await erpNextService.getCustomerOrders(req.customerId, 0);
+      const allInvoices = await erpNextService.getCustomerInvoices(req.customerId, 0);
 
-      // Store ERPNext data locally for caching
-      for (const order of erpOrders) {
+      // Get recent data for dashboard display (first 5 from all data)
+      const recentOrders = allOrders.slice(0, 5);
+      const recentInvoices = allInvoices.slice(0, 5);
+
+      // Store recent data locally for caching
+      for (const order of recentOrders) {
         await storage.createOrder(order);
       }
-      for (const invoice of erpInvoices) {
+      for (const invoice of recentInvoices) {
         await storage.createInvoice(invoice);
       }
 
-      // Only use ERPNext data - no fallback to local storage
-      const orders = erpOrders;
-      const invoices = erpInvoices;
-
-      // Calculate metrics
-      const totalOrders = orders.length;
-      const pendingInvoices = invoices.filter(inv => inv.status === 'Pending');
+      // Calculate metrics using ALL data for accurate totals
+      const totalOrders = allOrders.length;
+      const pendingInvoices = allInvoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
       const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
       res.json({
         customer,
-        recentOrders: orders,
-        recentInvoices: invoices,
+        recentOrders: recentOrders,
+        recentInvoices: recentInvoices,
         metrics: {
           totalOrders,
           pendingInvoices: pendingInvoices.length,
