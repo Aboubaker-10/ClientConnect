@@ -8,9 +8,16 @@ export class ERPNextService {
   private apiSecret: string;
 
   constructor() {
-    this.baseUrl = process.env.ERPNEXT_URL || process.env.ERPNEXT_BASE_URL || '';
+    let baseUrl = process.env.ERPNEXT_URL || process.env.ERPNEXT_BASE_URL || '';
     this.apiKey = process.env.ERPNEXT_API_KEY || process.env.API_KEY || '';
     this.apiSecret = process.env.ERPNEXT_API_SECRET || process.env.API_SECRET || '';
+
+    // Ensure URL has protocol
+    if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+    
+    this.baseUrl = baseUrl;
 
     if (!this.baseUrl || !this.apiKey || !this.apiSecret) {
       console.warn('ERPNext credentials not configured. Using fallback mode.');
