@@ -27,6 +27,8 @@ interface ProfileData {
 function parseAddress(primaryAddress: any) {
   if (!primaryAddress) return null;
 
+  console.log('Parsing address data:', primaryAddress);
+
   // If it's an object from ERPNext Address API
   if (typeof primaryAddress === 'object') {
     const addressParts = [
@@ -38,11 +40,29 @@ function parseAddress(primaryAddress: any) {
       primaryAddress.pincode
     ].filter(Boolean);
 
-    return {
+    const result = {
       address: addressParts.length > 0 ? addressParts.join(', ') : null,
       phone: primaryAddress.phone || null,
-      email: primaryAddress.email_id || null
+      email: primaryAddress.email_id || null,
+      // Additional fields for more complete display
+      address_line1: primaryAddress.address_line1 || null,
+      address_line2: primaryAddress.address_line2 || null,
+      city: primaryAddress.city || null,
+      state: primaryAddress.state || null,
+      country: primaryAddress.country || null,
+      pincode: primaryAddress.pincode || null
     };
+
+    // If we have any address field, consider it valid
+    const hasAnyAddressField = addressParts.length > 0 || 
+                               primaryAddress.phone || 
+                               primaryAddress.email_id ||
+                               primaryAddress.address_line1 ||
+                               primaryAddress.city ||
+                               primaryAddress.state ||
+                               primaryAddress.country;
+
+    return hasAnyAddressField ? result : null;
   }
 
   // Fallback for string format
@@ -58,7 +78,7 @@ function parseAddress(primaryAddress: any) {
       .trim();
     
     return {
-      address: cleanAddress,
+      address: cleanAddress || null,
       phone: phoneMatch ? phoneMatch[1].trim() : null,
       email: emailMatch ? emailMatch[1].trim() : null
     };
@@ -200,47 +220,107 @@ export default function Profile() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {addressInfo?.address && (
+              {addressInfo && (
                 <>
-                  <div>
-                    <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                      Primary Address
-                    </label>
-                    <p className="text-base leading-relaxed" style={{ color: 'var(--portal-text)' }}>
-                      {addressInfo.address}
-                    </p>
-                  </div>
+                  {/* Display individual address components if available */}
+                  {addressInfo.address_line1 && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
+                          Address Line 1
+                        </label>
+                        <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                          {addressInfo.address_line1}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  {addressInfo.address_line2 && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
+                          Address Line 2
+                        </label>
+                        <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                          {addressInfo.address_line2}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  {(addressInfo.city || addressInfo.state || addressInfo.country) && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
+                          Location
+                        </label>
+                        <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                          {[addressInfo.city, addressInfo.state, addressInfo.country].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  {addressInfo.pincode && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
+                          Postal Code
+                        </label>
+                        <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                          {addressInfo.pincode}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  {/* Fallback to combined address if individual components not available */}
+                  {!addressInfo.address_line1 && !addressInfo.city && addressInfo.address && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
+                          Primary Address
+                        </label>
+                        <p className="text-base leading-relaxed" style={{ color: 'var(--portal-text)' }}>
+                          {addressInfo.address}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
                   
-                  <Separator />
-                </>
-              )}
-              
-              {addressInfo?.phone && (
-                <>
-                  <div>
-                    <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
-                      <Phone className="h-4 w-4" />
-                      Phone Number
-                    </label>
-                    <p className="text-base" style={{ color: 'var(--portal-text)' }}>
-                      {addressInfo.phone}
-                    </p>
-                  </div>
+                  {addressInfo.phone && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
+                          <Phone className="h-4 w-4" />
+                          Phone Number
+                        </label>
+                        <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                          {addressInfo.phone}
+                        </p>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
                   
-                  <Separator />
+                  {addressInfo.email && (
+                    <div>
+                      <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
+                        <Mail className="h-4 w-4" />
+                        Email Address
+                      </label>
+                      <p className="text-base" style={{ color: 'var(--portal-text)' }}>
+                        {addressInfo.email}
+                      </p>
+                    </div>
+                  )}
                 </>
-              )}
-              
-              {addressInfo?.email && (
-                <div>
-                  <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
-                    <Mail className="h-4 w-4" />
-                    Email Address
-                  </label>
-                  <p className="text-base" style={{ color: 'var(--portal-text)' }}>
-                    {addressInfo.email}
-                  </p>
-                </div>
               )}
               
               {!addressInfo && (
