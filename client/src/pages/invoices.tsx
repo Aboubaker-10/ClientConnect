@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { ArrowLeft, FileText, Calendar, DollarSign, Clock } from "lucide-react";
+import { ArrowLeft, FileText, Calendar, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -155,7 +155,7 @@ export default function Invoices() {
                       </div>
                       <div className="text-right">
                         <div className="flex items-center space-x-2 mb-2">
-                          <DollarSign className="h-4 w-4" style={{ color: 'var(--portal-secondary)' }} />
+                          <Banknote className="h-4 w-4" style={{ color: 'var(--portal-secondary)' }} />
                           <span className="text-xl font-bold" style={{ color: 'var(--portal-text)' }}>
                             {formatCurrency(invoice.amount)}
                           </span>
