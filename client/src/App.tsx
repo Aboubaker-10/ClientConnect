@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import Orders from "@/pages/orders";
 import Invoices from "@/pages/invoices";
 import Profile from "@/pages/profile";
+import PlaceOrder from "@/pages/place-order";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/orders" component={Orders} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/profile" component={Profile} />
+      <Route path="/place-order" component={PlaceOrder} />
       <Route component={NotFound} />
     </Switch>
   );

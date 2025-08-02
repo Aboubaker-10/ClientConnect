@@ -103,26 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Get customer profile
-  app.get("/api/customer/profile", requireAuth, async (req: any, res) => {
-    try {
-      const customer = await storage.getCustomer(req.customerId);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
 
-      // Try to get fresh data from ERPNext
-      const freshCustomer = await erpNextService.getCustomer(req.customerId);
-      if (freshCustomer) {
-        await storage.createCustomer(freshCustomer);
-        return res.json(freshCustomer);
-      }
-
-      res.json(customer);
-    } catch (error) {
-      console.error('Profile fetch error:', error);
-      res.status(500).json({ message: "Failed to fetch profile" });
-    }
-  });
 
   // Get customer orders
   app.get("/api/customer/orders", requireAuth, async (req: any, res) => {
@@ -260,10 +241,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: null,
       };
       
+      console.log('Returning fallback customer data');
       res.json({ customer: fallbackCustomer });
     } catch (error) {
       console.error('Profile error:', error);
       res.status(500).json({ message: "Failed to load profile" });
+    }
+  });
+
+  // Products endpoint for place order page
+  app.get('/api/products', requireAuth, async (req, res) => {
+    try {
+      // For now, return empty array - will be populated when ERPNext Items API is integrated
+      // This prevents the Place Order page from crashing
+      res.json([]);
+    } catch (error) {
+      console.error('Products fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Create order endpoint
+  app.post('/api/orders/create', requireAuth, async (req, res) => {
+    try {
+      const { items, total } = req.body;
+      
+      // For now, simulate order creation
+      // In a real implementation, this would create a Sales Order in ERPNext
+      const orderId = `ORD-${Date.now()}`;
+      
+      res.json({
+        success: true,
+        orderId,
+        message: "Order created successfully"
+      });
+    } catch (error) {
+      console.error('Order creation error:', error);
+      res.status(500).json({ message: "Failed to create order" });
     }
   });
 

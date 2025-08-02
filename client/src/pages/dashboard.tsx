@@ -11,6 +11,7 @@ import {
   History,
   Headphones,
   UserCog,
+  User,
   LogOut,
   Package
 } from "lucide-react";
@@ -157,7 +158,7 @@ export default function Dashboard() {
                 className="transition duration-200"
                 style={{ color: 'var(--portal-accent)' }}
               >
-                <UserCog className="h-4 w-4" />
+                <User className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -431,9 +432,13 @@ export default function Dashboard() {
                 <span className="text-sm font-medium">Contact Support</span>
               </Button>
               
-              <Button variant="outline" className="flex items-center justify-center space-x-2 p-4 h-auto">
-                <UserCog style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Update Profile</span>
+              <Button 
+                variant="outline" 
+                className="flex items-center justify-center space-x-2 p-4 h-auto"
+                onClick={() => setLocation("/place-order")}
+              >
+                <Package style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
+                <span className="text-sm font-medium">Place Order</span>
               </Button>
             </div>
           </CardContent>
