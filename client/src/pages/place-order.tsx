@@ -117,8 +117,48 @@ function calculateSimilarity(str1: string, str2: string): number {
 // Extract potential OEM codes from text (numbers with optional letters)
 function extractOEMCodes(text: string): string[] {
   // Match patterns like "190689", "OEM 190689", "190689A", etc.
-  const oemMatches = text.match(/\b(?:OEM\s+)?([A-Z0-9]{4,})\b/gi);
-  return oemMatches ? oemMatches.map(match => match.replace(/^OEM\s+/i, '').toUpperCase()) : [];
+  // Also match item codes and part numbers
+  const patterns = [
+    /\b(?:OEM\s+)?([A-Z0-9]{4,})\b/gi,  // Standard OEM codes
+    /\b([0-9]{5,}[A-Z]*)\b/gi,          // Numeric codes with optional letters
+    /\b([A-Z]{2,}[0-9]{3,})\b/gi,       // Letter prefix codes
+    /\b([0-9]{3,}[A-Z][0-9]*)\b/gi      // Mixed alphanumeric
+  ];
+  
+  const codes = new Set<string>();
+  
+  patterns.forEach(pattern => {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleaned = match.replace(/^OEM\s+/i, '').toUpperCase();
+        if (cleaned.length >= 4) {
+          codes.add(cleaned);
+        }
+      });
+    }
+  });
+  
+  return Array.from(codes);
+}
+
+// Enhanced similarity check for OEM codes
+function isOEMSimilar(code1: string, code2: string): number {
+  if (code1 === code2) return 1.0;
+  
+  // Check if one code contains the other
+  if (code1.includes(code2) || code2.includes(code1)) return 0.9;
+  
+  // Check for common patterns (like manufacturer prefixes)
+  const prefixMatch = code1.substring(0, 3) === code2.substring(0, 3);
+  const suffixMatch = code1.slice(-3) === code2.slice(-3);
+  
+  if (prefixMatch && suffixMatch) return 0.8;
+  if (prefixMatch || suffixMatch) return 0.6;
+  
+  // Character-based similarity
+  const similarity = calculateSimilarity(code1, code2);
+  return similarity > 0.7 ? similarity : 0;
 }
 
 // Check if two products might be the same based on specifications
@@ -130,17 +170,25 @@ function areProductsSimilar(product1: Product, product2: Product): boolean {
     const viscosity = text.match(/\b(\d+w\d+)\b/i)?.[1];
     const volume = text.match(/\b(\d+(?:\.\d+)?l)\b/i)?.[1];
     const brand = product.name.split(' ')[0]?.toLowerCase();
+    const category = product.category?.toLowerCase();
     
-    return { viscosity, volume, brand };
+    // Extract additional specs
+    const grade = text.match(/\b(sae|api|acea)\s*([a-z0-9-]+)\b/i)?.[2];
+    const application = text.match(/\b(gasoline|diesel|engine|gear|transmission)\b/i)?.[1];
+    
+    return { viscosity, volume, brand, category, grade, application };
   };
   
   const specs1 = extractSpecs(product1);
   const specs2 = extractSpecs(product2);
   
-  // Products are similar if they have same viscosity and volume but different brands
-  return specs1.viscosity === specs2.viscosity && 
-         specs1.volume === specs2.volume && 
-         specs1.brand !== specs2.brand;
+  // Products are similar if they have matching specs but different brands
+  const sameViscosity = specs1.viscosity && specs2.viscosity && specs1.viscosity === specs2.viscosity;
+  const sameVolume = specs1.volume && specs2.volume && specs1.volume === specs2.volume;
+  const sameApplication = specs1.application && specs2.application && specs1.application === specs2.application;
+  const differentBrand = specs1.brand !== specs2.brand;
+  
+  return sameViscosity && (sameVolume || sameApplication) && differentBrand;
 }
 
 function smartProductSearch(products: Product[], query: string) {
@@ -155,6 +203,7 @@ function smartProductSearch(products: Product[], query: string) {
   
   const scored = products.map(product => {
     let maxScore = 0;
+    let matchType = '';
     
     // Build searchable text
     const searchableText = [
@@ -165,18 +214,32 @@ function smartProductSearch(products: Product[], query: string) {
     ].join(' ').toLowerCase();
     
     // Extract OEM codes from product
-    const productOEMCodes = extractOEMCodes(searchableText);
+    const productOEMCodes = extractOEMCodes(`${product.itemCode} ${product.name} ${product.description || ''}`);
     
-    // 1. Check for exact OEM code matches (highest priority)
-    if (queryOEMCodes.length > 0 && productOEMCodes.length > 0) {
+    // 1. Check for OEM code matches (highest priority)
+    if (queryOEMCodes.length > 0) {
       for (const queryOEM of queryOEMCodes) {
+        // Check item code first (most likely to contain OEM)
+        if (product.itemCode.toUpperCase().includes(queryOEM)) {
+          console.log(`OEM exact match in item code: ${queryOEM} in ${product.itemCode}`);
+          maxScore = Math.max(maxScore, 1.0);
+          matchType = 'OEM_EXACT';
+        }
+        
+        // Check against extracted product OEM codes
         for (const productOEM of productOEMCodes) {
-          if (queryOEM === productOEM) {
-            console.log(`OEM match found: ${queryOEM} in ${product.name}`);
-            maxScore = Math.max(maxScore, 1.0);
-          } else if (calculateSimilarity(queryOEM, productOEM) > 0.8) {
-            maxScore = Math.max(maxScore, 0.9);
+          const similarity = isOEMSimilar(queryOEM, productOEM);
+          if (similarity >= 0.8) {
+            console.log(`OEM match found: ${queryOEM} ≈ ${productOEM} (${similarity.toFixed(2)}) in ${product.name}`);
+            maxScore = Math.max(maxScore, similarity);
+            matchType = similarity === 1.0 ? 'OEM_EXACT' : 'OEM_SIMILAR';
           }
+        }
+        
+        // Partial OEM match in any field
+        if (maxScore < 0.8 && searchableText.includes(queryOEM.toLowerCase())) {
+          maxScore = Math.max(maxScore, 0.7);
+          matchType = 'OEM_PARTIAL';
         }
       }
     }
@@ -184,14 +247,21 @@ function smartProductSearch(products: Product[], query: string) {
     // 2. Check for exact term matches
     if (maxScore < 0.9) {
       for (const term of searchTerms) {
-        if (term.length >= 3) {
-          // Exact match in any field
+        if (term.length >= 2) {
+          // Exact match in product name (high priority)
           if (product.name.toLowerCase().includes(term)) {
             maxScore = Math.max(maxScore, 0.85);
-          } else if (product.itemCode.toLowerCase().includes(term)) {
+            matchType = matchType || 'NAME_EXACT';
+          }
+          // Exact match in item code
+          else if (product.itemCode.toLowerCase().includes(term)) {
             maxScore = Math.max(maxScore, 0.8);
-          } else if (searchableText.includes(term)) {
+            matchType = matchType || 'CODE_EXACT';
+          }
+          // Match in description or category
+          else if (searchableText.includes(term)) {
             maxScore = Math.max(maxScore, 0.7);
+            matchType = matchType || 'DESC_EXACT';
           }
         }
       }
@@ -201,60 +271,98 @@ function smartProductSearch(products: Product[], query: string) {
     if (maxScore < 0.7) {
       for (const term of searchTerms) {
         if (term.length >= 3) {
-          const nameScore = calculateSimilarity(term, product.name);
-          const codeScore = calculateSimilarity(term, product.itemCode);
-          const descScore = product.description ? calculateSimilarity(term, product.description) : 0;
+          const nameScore = calculateSimilarity(term, product.name.toLowerCase());
+          const codeScore = calculateSimilarity(term, product.itemCode.toLowerCase());
+          const descScore = product.description ? calculateSimilarity(term, product.description.toLowerCase()) : 0;
           
-          maxScore = Math.max(maxScore, nameScore * 0.6, codeScore * 0.7, descScore * 0.4);
+          const bestFuzzyScore = Math.max(nameScore * 0.8, codeScore * 0.9, descScore * 0.6);
+          if (bestFuzzyScore > maxScore) {
+            maxScore = bestFuzzyScore;
+            matchType = matchType || 'FUZZY';
+          }
         }
       }
     }
     
-    // 4. Partial matches for specifications (viscosity, volume, etc.)
+    // 4. Specification matches (viscosity, volume, etc.)
     if (maxScore < 0.6) {
       const viscosityMatch = queryLower.match(/\b(\d+w\d+)\b/);
       const volumeMatch = queryLower.match(/\b(\d+(?:\.\d+)?l)\b/);
+      const gradeMatch = queryLower.match(/\b(sae|api|acea)\s*([a-z0-9-]+)\b/i);
       
       if (viscosityMatch && searchableText.includes(viscosityMatch[1])) {
-        maxScore = Math.max(maxScore, 0.5);
+        maxScore = Math.max(maxScore, 0.6);
+        matchType = matchType || 'SPEC_VISCOSITY';
       }
       if (volumeMatch && searchableText.includes(volumeMatch[1])) {
-        maxScore = Math.max(maxScore, 0.4);
+        maxScore = Math.max(maxScore, 0.5);
+        matchType = matchType || 'SPEC_VOLUME';
+      }
+      if (gradeMatch && searchableText.includes(gradeMatch[2])) {
+        maxScore = Math.max(maxScore, 0.55);
+        matchType = matchType || 'SPEC_GRADE';
       }
     }
     
-    return { product, score: maxScore };
+    return { product, score: maxScore, matchType };
   });
   
-  // Sort by score
-  scored.sort((a, b) => b.score - a.score);
+  // Sort by score, then by match type priority
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    
+    const typeOrder = ['OEM_EXACT', 'OEM_SIMILAR', 'NAME_EXACT', 'CODE_EXACT', 'OEM_PARTIAL', 'DESC_EXACT', 'SPEC_VISCOSITY', 'FUZZY'];
+    return typeOrder.indexOf(a.matchType) - typeOrder.indexOf(b.matchType);
+  });
   
   // Split into matches and suggestions
   const goodMatches = scored.filter(item => item.score >= 0.4);
-  const potentialMatches = scored.filter(item => item.score >= 0.2 && item.score < 0.4);
+  const potentialMatches = scored.filter(item => item.score >= 0.15 && item.score < 0.4);
   
-  // For suggestions, also find similar products (same specs, different brand)
+  // Enhanced suggestions logic
   const suggestions: Product[] = [];
+  const suggestionSet = new Set<string>();
   
-  if (goodMatches.length === 0 && potentialMatches.length > 0) {
-    // Add potential matches as suggestions
-    suggestions.push(...potentialMatches.slice(0, 3).map(item => item.product));
-  } else if (goodMatches.length > 0) {
-    // Find similar products to the best matches
-    const bestMatch = goodMatches[0].product;
-    for (const item of scored) {
-      if (item.score < 0.4 && suggestions.length < 3) {
-        if (areProductsSimilar(bestMatch, item.product)) {
-          suggestions.push(item.product);
+  if (goodMatches.length === 0) {
+    // No good matches - show best potential matches as suggestions
+    potentialMatches.slice(0, 5).forEach(item => {
+      if (!suggestionSet.has(item.product.id)) {
+        suggestions.push(item.product);
+        suggestionSet.add(item.product.id);
+      }
+    });
+  } else {
+    // Found matches - suggest similar products
+    const topMatches = goodMatches.slice(0, 3);
+    
+    // Find similar products based on specifications
+    for (const matchedItem of topMatches) {
+      for (const item of scored) {
+        if (item.score < 0.4 && suggestions.length < 5 && !suggestionSet.has(item.product.id)) {
+          if (areProductsSimilar(matchedItem.product, item.product)) {
+            suggestions.push(item.product);
+            suggestionSet.add(item.product.id);
+          }
         }
       }
+    }
+    
+    // If not enough similar products, add some potential matches
+    if (suggestions.length < 3) {
+      potentialMatches.slice(0, 3 - suggestions.length).forEach(item => {
+        if (!suggestionSet.has(item.product.id)) {
+          suggestions.push(item.product);
+          suggestionSet.add(item.product.id);
+        }
+      });
     }
   }
   
   console.log('Search results:', {
     matches: goodMatches.length,
     suggestions: suggestions.length,
-    topScore: scored[0]?.score || 0
+    topScore: scored[0]?.score || 0,
+    topMatchType: scored[0]?.matchType || 'NONE'
   });
   
   return {
