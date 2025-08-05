@@ -1,0 +1,396 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERPNext Customer Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        accent: '#6B7280',
+                        background: '#F9FAFB',
+                        text: '#111827'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="font-inter bg-background text-text min-h-screen">
+
+    <!-- Login Page -->
+    <div id="loginPage" class="min-h-screen flex items-center justify-center px-4">
+        <!-- @COMPONENT: LoginForm -->
+        <div class="max-w-md w-full space-y-8">
+            <div class="text-center">
+                <div class="mx-auto h-16 w-16 bg-primary rounded-xl flex items-center justify-center mb-6">
+                    <i class="fas fa-building text-white text-2xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-text">Customer Portal</h2>
+                <p class="mt-2 text-accent">Enter your Customer ID to access your account</p>
+            </div>
+            
+            <form class="mt-8 space-y-6" data-event="submit:handleLogin">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
+                    <div>
+                        <label for="customerId" class="block text-sm font-medium text-text mb-2">Customer ID</label>
+                        <input 
+                            id="customerId" 
+                            name="customerId" 
+                            type="text" 
+                            required 
+                            data-bind="loginForm.customerId"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200 text-sm"
+                            placeholder="Enter your Customer ID"
+                        />
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        data-event="click:submitLogin"
+                        class="w-full bg-primary hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
+                    >
+                        <span>Access Portal</span>
+                        <i class="fas fa-arrow-right text-sm"></i>
+                    </button>
+                </div>
+                
+                <div class="text-center">
+                    <p class="text-sm text-accent">
+                        Need help? <a href="#" class="text-primary hover:text-indigo-700 font-medium">Contact Support</a>
+                    </p>
+                </div>
+            </form>
+        </div>
+        <!-- @END_COMPONENT: LoginForm -->
+    </div>
+
+    <!-- Customer Dashboard -->
+    <div id="dashboardPage" class="hidden min-h-screen bg-background">
+        <!-- @COMPONENT: Header -->
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-4">
+                        <div class="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-building text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-text">Customer Portal</h1>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="hidden sm:block text-right">
+                            <p class="text-sm font-medium text-text" data-bind="customer.name">John Smith</p>
+                            <p class="text-xs text-accent" data-bind="customer.id">CUST-2024-001</p>
+                        </div>
+                        <button 
+                            data-event="click:logout"
+                            class="text-accent hover:text-text transition duration-200"
+                        >
+                            <i class="fas fa-sign-out-alt text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <!-- @END_COMPONENT: Header -->
+
+        <!-- @COMPONENT: Dashboard -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Welcome Section -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-text mb-2">Welcome back, <span data-bind="customer.name" data-mock="true">John Smith</span></h2>
+                <p class="text-accent">Here's an overview of your account and recent activity.</p>
+            </div>
+
+            <!-- Account Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Account Balance -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-wallet text-primary text-lg"></i>
+                        </div>
+                        <span class="text-xs font-medium text-secondary bg-green-100 px-2 py-1 rounded-full">Active</span>
+                    </div>
+                    <h3 class="text-sm font-medium text-accent mb-1">Account Balance</h3>
+                    <p class="text-2xl font-bold text-text" data-bind="customer.balance" data-mock="true">$12,450.00</p>
+                </div>
+
+                <!-- Total Orders -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shopping-cart text-primary text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-sm font-medium text-accent mb-1">Total Orders</h3>
+                    <p class="text-2xl font-bold text-text" data-bind="customer.totalOrders" data-mock="true">47</p>
+                </div>
+
+                <!-- Pending Invoices -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-file-invoice text-yellow-600 text-lg"></i>
+                        </div>
+                        <span class="text-xs font-medium text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">2 Pending</span>
+                    </div>
+                    <h3 class="text-sm font-medium text-accent mb-1">Pending Invoices</h3>
+                    <p class="text-2xl font-bold text-text" data-bind="customer.pendingAmount" data-mock="true">$3,250.00</p>
+                </div>
+
+                <!-- Credit Limit -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-credit-card text-secondary text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-sm font-medium text-accent mb-1">Credit Limit</h3>
+                    <p class="text-2xl font-bold text-text" data-bind="customer.creditLimit" data-mock="true">$50,000.00</p>
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Recent Orders -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-text">Recent Orders</h3>
+                            <button class="text-primary hover:text-indigo-700 text-sm font-medium transition duration-200">
+                                View All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <!-- @MAP: orders.map(order => ( -->
+                        <div data-mock="true" class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div class="flex items-center space-x-4">
+                                <div class="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-box text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-text" data-bind="order.number">SO-2024-00245</p>
+                                    <p class="text-sm text-accent" data-bind="order.date">March 15, 2024</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold text-text" data-bind="order.amount">$2,850.00</p>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-secondary">
+                                    Delivered
+                                </span>
+                            </div>
+                        </div>
+
+                        <div data-mock="true" class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div class="flex items-center space-x-4">
+                                <div class="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-box text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-text" data-bind="order.number">SO-2024-00244</p>
+                                    <p class="text-sm text-accent" data-bind="order.date">March 12, 2024</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold text-text" data-bind="order.amount">$1,250.00</p>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-primary">
+                                    In Transit
+                                </span>
+                            </div>
+                        </div>
+
+                        <div data-mock="true" class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div class="flex items-center space-x-4">
+                                <div class="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-box text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-text" data-bind="order.number">SO-2024-00243</p>
+                                    <p class="text-sm text-accent" data-bind="order.date">March 10, 2024</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold text-text" data-bind="order.amount">$975.00</p>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-secondary">
+                                    Delivered
+                                </span>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+
+                <!-- Account Information -->
+                <div class="space-y-6">
+                    <!-- Account Details -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-text mb-4">Account Details</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-sm font-medium text-accent">Customer ID</p>
+                                <p class="text-text" data-bind="customer.id" data-mock="true">CUST-2024-001</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-accent">Company</p>
+                                <p class="text-text" data-bind="customer.company" data-mock="true">Acme Corporation</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-accent">Contact Person</p>
+                                <p class="text-text" data-bind="customer.contact" data-mock="true">John Smith</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-accent">Email</p>
+                                <p class="text-text" data-bind="customer.email" data-mock="true">john.smith@acme.com</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-accent">Phone</p>
+                                <p class="text-text" data-bind="customer.phone" data-mock="true">+1 (555) 123-4567</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Invoices -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-text">Recent Invoices</h3>
+                            <button class="text-primary hover:text-indigo-700 text-sm font-medium transition duration-200">
+                                View All
+                            </button>
+                        </div>
+                        <div class="space-y-3">
+                            <!-- @MAP: invoices.map(invoice => ( -->
+                            <div data-mock="true" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p class="font-medium text-text text-sm" data-bind="invoice.number">INV-2024-0156</p>
+                                    <p class="text-xs text-accent" data-bind="invoice.date">Mar 15, 2024</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-semibold text-text text-sm" data-bind="invoice.amount">$2,850.00</p>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-secondary">
+                                        Paid
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div data-mock="true" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p class="font-medium text-text text-sm" data-bind="invoice.number">INV-2024-0155</p>
+                                    <p class="text-xs text-accent" data-bind="invoice.date">Mar 12, 2024</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-semibold text-text text-sm" data-bind="invoice.amount">$1,250.00</p>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-600">
+                                        Pending
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div data-mock="true" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p class="font-medium text-text text-sm" data-bind="invoice.number">INV-2024-0154</p>
+                                    <p class="text-xs text-accent" data-bind="invoice.date">Mar 10, 2024</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-semibold text-text text-sm" data-bind="invoice.amount">$975.00</p>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-secondary">
+                                        Paid
+                                    </span>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-text mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button 
+                        data-event="click:downloadStatement"
+                        class="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                    >
+                        <i class="fas fa-download text-primary"></i>
+                        <span class="text-sm font-medium text-text">Download Statement</span>
+                    </button>
+                    
+                    <button 
+                        data-event="click:viewPaymentHistory"
+                        class="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                    >
+                        <i class="fas fa-history text-primary"></i>
+                        <span class="text-sm font-medium text-text">Payment History</span>
+                    </button>
+                    
+                    <button 
+                        data-event="click:contactSupport"
+                        class="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                    >
+                        <i class="fas fa-headset text-primary"></i>
+                        <span class="text-sm font-medium text-text">Contact Support</span>
+                    </button>
+                    
+                    <button 
+                        data-event="click:updateProfile"
+                        class="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+                    >
+                        <i class="fas fa-user-edit text-primary"></i>
+                        <span class="text-sm font-medium text-text">Update Profile</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+        <!-- @END_COMPONENT: Dashboard -->
+    </div>
+
+    <script>
+        // Simple page navigation simulation
+        (function() {
+            const loginPage = document.getElementById('loginPage');
+            const dashboardPage = document.getElementById('dashboardPage');
+            const loginForm = document.querySelector('form');
+
+            // TODO: Implement real authentication with ERPNext API
+            loginForm?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const customerId = document.getElementById('customerId').value;
+                
+                if (customerId.trim()) {
+                    // TODO: Validate Customer ID with ERPNext API
+                    // TODO: Fetch customer data and populate dashboard
+                    loginPage.classList.add('hidden');
+                    dashboardPage.classList.remove('hidden');
+                }
+            });
+
+            // TODO: Implement logout functionality
+            document.querySelector('[data-event="click:logout"]')?.addEventListener('click', function() {
+                dashboardPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+                document.getElementById('customerId').value = '';
+            });
+
+            // TODO: Implement actual API calls for these actions
+            // TODO: Add loading states and error handling
+            // TODO: Add session management and token handling
+        })();
+    </script>
+</body>
+</html>

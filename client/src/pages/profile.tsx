@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { User, MapPin, Phone, Mail, Building2, Globe, ArrowLeft } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
+import { useLanguage } from "@/contexts/language-context";
+import { translations, translateStatus } from "@/lib/translations";
 
 interface Customer {
   id: string;
@@ -25,11 +27,15 @@ interface ProfileData {
 }
 
 // Helper function to parse address information
-function parseAddress(primaryAddress: any) {
-  if (!primaryAddress) return null;
+function parseAddress(primaryAddress: any, customer: Customer) {
+  let addressInfo = {
+    address: null as string | null,
+    phone: null as string | null,
+    email: null as string | null
+  };
 
   // If it's an object from ERPNext Address API
-  if (typeof primaryAddress === 'object') {
+  if (primaryAddress && typeof primaryAddress === 'object') {
     const addressParts = [
       primaryAddress.address_line1,
       primaryAddress.address_line2,
@@ -39,39 +45,61 @@ function parseAddress(primaryAddress: any) {
       primaryAddress.pincode
     ].filter(Boolean);
 
-    return {
+    addressInfo = {
       address: addressParts.length > 0 ? addressParts.join(', ') : null,
       phone: primaryAddress.phone || null,
       email: primaryAddress.email_id || null
     };
   }
-
-  // Fallback for string format
-  if (typeof primaryAddress === 'string') {
+  
+  // Handle string format from ERPNext (the main case)
+  else if (primaryAddress && typeof primaryAddress === 'string') {
+    // Extract phone number - look for Phone: followed by the number
     const phoneMatch = primaryAddress.match(/Phone:\s*([+\d\s-]+)/);
+    
+    // Extract email - look for Email: followed by the email
     const emailMatch = primaryAddress.match(/Email:\s*([^\s,]+)/);
     
+    // Clean the address by removing Phone and Email parts
     let cleanAddress = primaryAddress
-      .replace(/,\s*Phone:[^,]+/g, '')
-      .replace(/,\s*Email:[^,]+/g, '')
-      .replace(/,\s*,/g, ',')
-      .replace(/,\s*$/, '')
+      .replace(/,\s*Phone:[^,]+/g, '') // Remove Phone part
+      .replace(/,\s*Email:[^,]+/g, '') // Remove Email part
+      .replace(/,\s*,+/g, ',') // Remove multiple commas
+      .replace(/,\s*$/, '') // Remove trailing comma
+      .replace(/^,\s*/, '') // Remove leading comma
       .trim();
     
-    return {
-      address: cleanAddress,
+    // Remove empty parts at the end
+    cleanAddress = cleanAddress.replace(/,\s*,\s*$/, '').trim();
+    
+    addressInfo = {
+      address: cleanAddress || null,
       phone: phoneMatch ? phoneMatch[1].trim() : null,
       email: emailMatch ? emailMatch[1].trim() : null
     };
   }
-
-  return null;
+  
+  // Use customer data as fallback if no address-specific data
+  if (!addressInfo.phone && customer.phone) {
+    addressInfo.phone = customer.phone;
+  }
+  if (!addressInfo.email && customer.email) {
+    addressInfo.email = customer.email;
+  }
+  
+  return addressInfo.address || addressInfo.phone || addressInfo.email ? addressInfo : null;
 }
 
 export default function Profile() {
   const [, setLocation] = useLocation();
+  const { language } = useLanguage();
+  const t = translations[language].dashboard;
   const { data, isLoading, error } = useQuery<ProfileData>({
-    queryKey: ['/api/customer/profile'],
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/customer/profile");
+      return response.json();
+    },
   });
 
   if (isLoading) {
@@ -93,7 +121,7 @@ export default function Profile() {
       <div className="container mx-auto px-4 py-8">
         <Card className="border-red-200">
           <CardContent className="pt-6">
-            <p className="text-red-600">Unable to load profile information</p>
+            <p className="text-red-600">{t.unableToLoadProfile}</p>
           </CardContent>
         </Card>
       </div>
@@ -101,7 +129,7 @@ export default function Profile() {
   }
 
   const { customer } = data!;
-  const addressInfo = parseAddress(customer?.primary_address || customer?.primaryAddress);
+  const addressInfo = parseAddress(customer?.primary_address || customer?.primaryAddress, customer);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -114,10 +142,10 @@ export default function Profile() {
             </div>
             <div>
               <h1 className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                Customer Profile
+                {t.customerProfile}
               </h1>
               <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                Account information and contact details
+                {t.accountInformation}
               </p>
             </div>
           </div>
@@ -129,7 +157,7 @@ export default function Profile() {
             className="flex items-center space-x-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Back to Dashboard</span>
+            <span>{t.backToDashboard}</span>
           </Button>
         </div>
 
@@ -139,13 +167,13 @@ export default function Profile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2" style={{ color: 'var(--portal-text)' }}>
                 <Building2 className="h-5 w-5" style={{ color: 'var(--portal-primary)' }} />
-                Customer Information
+                {t.customerInformation}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Customer ID
+                  {t.customerId}
                 </label>
                 <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                   {customer.id}
@@ -156,7 +184,7 @@ export default function Profile() {
               
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Company Name
+                  {t.companyName}
                 </label>
                 <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                   {customer.name}
@@ -167,14 +195,14 @@ export default function Profile() {
               
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Account Status
+                  {t.accountStatus}
                 </label>
                 <div className="mt-1">
                   <Badge 
                     variant={customer.status === 'Active' ? 'default' : 'secondary'}
                     className={customer.status === 'Active' ? 'bg-green-100 text-green-800' : ''}
                   >
-                    {customer.status}
+                    {translateStatus(customer.status, language)}
                   </Badge>
                 </div>
               </div>
@@ -183,10 +211,10 @@ export default function Profile() {
               
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Default Currency
+                  {t.defaultCurrency}
                 </label>
                 <p className="text-base" style={{ color: 'var(--portal-text)' }}>
-                  {customer.defaultCurrency || 'MAD'} - Moroccan Dirham
+                  {customer.defaultCurrency || 'MAD'} - {t.moroccanDirham}
                 </p>
               </div>
             </CardContent>
@@ -197,7 +225,7 @@ export default function Profile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2" style={{ color: 'var(--portal-text)' }}>
                 <MapPin className="h-5 w-5" style={{ color: 'var(--portal-primary)' }} />
-                Contact Information
+                {t.contactInformation}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -205,7 +233,7 @@ export default function Profile() {
                 <>
                   <div>
                     <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                      Primary Address
+                      {t.primaryAddress}
                     </label>
                     <p className="text-base leading-relaxed" style={{ color: 'var(--portal-text)' }}>
                       {addressInfo.address}
@@ -221,7 +249,7 @@ export default function Profile() {
                   <div>
                     <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
                       <Phone className="h-4 w-4" />
-                      Phone Number
+                      {t.phoneNumber}
                     </label>
                     <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                       {addressInfo.phone}
@@ -236,7 +264,7 @@ export default function Profile() {
                 <div>
                   <label className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--portal-accent)' }}>
                     <Mail className="h-4 w-4" />
-                    Email Address
+                    {t.emailAddress}
                   </label>
                   <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                     {addressInfo.email}
@@ -248,7 +276,7 @@ export default function Profile() {
                 <div className="text-center py-8">
                   <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--portal-accent)' }} />
                   <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                    No contact information available
+                    {t.noContactInformation}
                   </p>
                 </div>
               )}
@@ -260,15 +288,15 @@ export default function Profile() {
         <Card className="portal-card border-portal">
           <CardHeader>
             <CardTitle className="flex items-center gap-2" style={{ color: 'var(--portal-text)' }}>
-              <Globe className="h-5 w-5" style={{ color: 'var(--portal-primary)' }} />
-              Account Activity
+            <Globe className="h-5 w-5" style={{ color: 'var(--portal-primary)' }} />
+            {t.accountActivity}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Last Login
+                  {t.lastLogin}
                 </label>
                 <p className="text-base" style={{ color: 'var(--portal-text)' }}>
                   {new Date(customer.lastLogin).toLocaleString()}
@@ -277,10 +305,10 @@ export default function Profile() {
               
               <div>
                 <label className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>
-                  Language Preference
+                  {t.languagePreference}
                 </label>
                 <p className="text-base" style={{ color: 'var(--portal-text)' }}>
-                  {customer.language === 'ar' ? 'العربية (Arabic)' : customer.language || 'Not specified'}
+                  {customer.language === 'ar' ? t.arabic : customer.language || t.notSpecified}
                 </p>
               </div>
             </div>

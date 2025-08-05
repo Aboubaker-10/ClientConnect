@@ -5,19 +5,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Building } from "lucide-react";
 import { loginSchema, type LoginRequest } from "@shared/schema";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLanguage } from "@/contexts/language-context";
+import { translations } from "@/lib/translations";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = translations[language].dashboard;
+  
+  const dynamicLoginSchema = z.object({
+    customerId: z.string().min(1, t.customerIdIsRequired),
+  });
   
   const form = useForm<LoginRequest>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(dynamicLoginSchema),
     defaultValues: {
       customerId: "",
     },
@@ -31,10 +40,10 @@ export default function Login() {
     onSuccess: () => {
       setLocation("/dashboard");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
-        title: "Login Failed",
-        description: error.message || "Invalid Customer ID. Please try again.",
+        title: t.loginFailed,
+        description: error.message || t.pleaseCheckCustomerIdAndTryAgain,
         variant: "destructive",
       });
     },
@@ -52,10 +61,10 @@ export default function Login() {
             <Building className="text-white text-2xl" size={32} />
           </div>
           <h2 className="text-3xl font-bold" style={{ color: 'var(--portal-text)' }}>
-            Customer Portal
+            {t.customerPortal}
           </h2>
           <p className="mt-2" style={{ color: 'var(--portal-accent)' }}>
-            Enter your Customer ID to access your account
+            {t.enterCustomerIdToAccess}
           </p>
         </div>
         
@@ -64,13 +73,13 @@ export default function Login() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="customerId" className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
-                  Customer ID
+                  {t.customerId}
                 </Label>
                 <Input
                   id="customerId"
                   type="text"
-                  placeholder="Enter your Customer ID"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 transition duration-200"
+                  placeholder={t.enterYourCustomerId}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 transition-colors duration-150 ease-out"
                   style={{ 
                     '--tw-ring-color': 'var(--portal-primary)',
                     borderColor: 'var(--border)'
@@ -86,14 +95,14 @@ export default function Login() {
               
               <Button 
                 type="submit" 
-                className="w-full font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
+                className="w-full font-medium py-3 px-4 rounded-lg transition-colors duration-150 ease-out flex items-center justify-center space-x-2 animate-optimized"
                 style={{ 
                   backgroundColor: 'var(--portal-primary)',
                   color: 'white'
                 }}
                 disabled={loginMutation.isPending}
               >
-                <span>{loginMutation.isPending ? "Logging in..." : "Access Portal"}</span>
+                <span>{loginMutation.isPending ? t.loggingIn : t.accessPortal}</span>
                 {!loginMutation.isPending && (
                   <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -104,13 +113,13 @@ export default function Login() {
             
             <div className="text-center mt-6">
               <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                Need help?{" "}
+                {t.needHelp}{" "}
                 <a 
                   href="#" 
-                  className="font-medium transition duration-200"
+                  className="font-medium transition-colors duration-150 ease-out"
                   style={{ color: 'var(--portal-primary)' }}
                 >
-                  Contact Support
+                  {t.contactSupport}
                 </a>
               </p>
             </div>

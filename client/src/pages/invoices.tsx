@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { useEffect, useState, useMemo } from "react";
+import { useLanguage } from "@/contexts/language-context";
+import { translations, translateStatus } from "@/lib/translations";
 import { ArrowLeft, FileText, Calendar, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,25 +13,40 @@ import type { Invoice } from "@shared/schema";
 
 export default function Invoices() {
   const [, setLocation] = useLocation();
+  const { language } = useLanguage();
+  const t = translations[language].dashboard;
 
   const { data: invoices, isLoading, error } = useQuery<Invoice[]>({
-    queryKey: ["/api/customer/invoices"],
+    queryKey: ["invoices"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/customer/invoices");
+      return response.json();
+    },
     retry: false,
   });
 
+  const formatCurrency = useMemo(() => {
+    const formatter = new Intl.NumberFormat('fr-MA', {
+      style: 'currency',
+      currency: 'MAD',
+    });
+    return (amount: string) => formatter.format(parseFloat(amount));
+  }, []);
+
+  const formatDate = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    return (date: string | Date) => formatter.format(new Date(date));
+  }, []);
+
   useEffect(() => {
     if (error) {
-      setLocation("/");
+      console.error('Invoices fetch error:', error);
     }
-  }, [error, setLocation]);
-
-  if (isLoading) {
-    return <DashboardSkeleton />;
-  }
-
-  if (!invoices) {
-    return null;
-  }
+  }, [error]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -45,25 +63,18 @@ export default function Invoices() {
     }
   };
 
-  const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('fr-MA', {
-      style: 'currency',
-      currency: 'MAD',
-    }).format(parseFloat(amount));
-  };
-
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const isOverdue = (dueDate: string | Date | null, status: string) => {
     if (!dueDate || status.toLowerCase() === 'paid') return false;
     return new Date(dueDate) < new Date();
   };
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!invoices) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--portal-background)' }}>
@@ -79,11 +90,11 @@ export default function Invoices() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>Back to Dashboard</span>
+                <span>{t.backToDashboard}</span>
               </Button>
             </div>
             <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-              All Invoices
+              {t.allInvoices}
             </h1>
             <div className="w-32"></div>
           </div>
@@ -95,7 +106,7 @@ export default function Invoices() {
         <Card className="portal-card border-portal">
           <CardHeader>
             <CardTitle style={{ color: 'var(--portal-text)' }}>
-              Invoice History ({invoices.length} invoices)
+              {t.invoiceHistory} ({invoices.length} {t.invoices})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -103,10 +114,10 @@ export default function Invoices() {
               <div className="text-center py-12">
                 <FileText className="mx-auto h-16 w-16 mb-4" style={{ color: 'var(--portal-accent)' }} />
                 <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                  No invoices found
+                  {t.noInvoicesFound}
                 </h3>
                 <p style={{ color: 'var(--portal-accent)' }}>
-                  You don't have any invoices yet.
+                  {t.noInvoicesReceived}
                 </p>
               </div>
             ) : (
@@ -130,7 +141,7 @@ export default function Invoices() {
                             <div className="flex items-center space-x-1">
                               <Calendar className="h-4 w-4" style={{ color: 'var(--portal-accent)' }} />
                               <span className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                                Issued: {formatDate(invoice.invoiceDate)}
+                                {t.issued}: {formatDate(invoice.invoiceDate)}
                               </span>
                             </div>
                             {invoice.dueDate && (
@@ -139,14 +150,14 @@ export default function Invoices() {
                                       style={{ color: isOverdue(invoice.dueDate, invoice.status) ? 'red' : 'var(--portal-accent)' }} />
                                 <span className={`text-sm ${isOverdue(invoice.dueDate, invoice.status) ? 'text-red-500' : ''}`}
                                       style={{ color: isOverdue(invoice.dueDate, invoice.status) ? 'red' : 'var(--portal-accent)' }}>
-                                  Due: {formatDate(invoice.dueDate)}
+                                  {t.due}: {formatDate(invoice.dueDate)}
                                 </span>
                               </div>
                             )}
                             {invoice.paidDate && (
                               <div className="flex items-center space-x-1">
                                 <span className="text-sm text-green-600">
-                                  Paid: {formatDate(invoice.paidDate)}
+                                  {t.paid}: {formatDate(invoice.paidDate)}
                                 </span>
                               </div>
                             )}
@@ -161,7 +172,7 @@ export default function Invoices() {
                           </span>
                         </div>
                         <Badge className={getStatusColor(invoice.status)}>
-                          {invoice.status}
+                          {translateStatus(invoice.status, language)}
                         </Badge>
                       </div>
                     </div>

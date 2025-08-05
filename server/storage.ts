@@ -23,10 +23,10 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private customers: Map<string, Customer>;
-  private orders: Map<string, Order>;
-  private invoices: Map<string, Invoice>;
-  private sessions: Map<string, Session>;
+  private readonly customers: Map<string, Customer>;
+  private readonly orders: Map<string, Order>;
+  private readonly invoices: Map<string, Invoice>;
+  private readonly sessions: Map<string, Session>;
 
   constructor() {
     this.customers = new Map();
@@ -69,8 +69,13 @@ export class MemStorage implements IStorage {
   }
 
   async getCustomerInvoices(customerId: string, limit: number = 10): Promise<Invoice[]> {
-    return Array.from(this.invoices.values())
-      .filter(invoice => invoice.customerId === customerId)
+    const customerInvoices: Invoice[] = [];
+    for (const invoice of this.invoices.values()) {
+      if (invoice.customerId === customerId) {
+        customerInvoices.push(invoice);
+      }
+    }
+    return customerInvoices
       .sort((a, b) => b.invoiceDate.getTime() - a.invoiceDate.getTime())
       .slice(0, limit);
   }
@@ -81,36 +86,55 @@ export class MemStorage implements IStorage {
   }
 
   async createSession(insertSession: InsertSession): Promise<Session> {
-    const session: Session = {
-      ...insertSession,
-      createdAt: new Date(),
-    };
-    this.sessions.set(session.id, session);
-    return session;
+    try {
+      const session: Session = {
+        ...insertSession,
+        createdAt: new Date(),
+      };
+      this.sessions.set(session.id, session);
+      return session;
+    } catch (error) {
+      throw new Error(`Failed to create session: ${error}`);
+    }
   }
 
   async getSession(id: string): Promise<Session | undefined> {
+    if (typeof id !== 'string' || id.length === 0) {
+      return undefined;
+    }
+    
     const session = this.sessions.get(id);
-    if (session && session.expiresAt > new Date()) {
-      return session;
+    if (!session) {
+      return undefined;
     }
-    if (session) {
+    
+    if (session.expiresAt <= new Date()) {
       this.sessions.delete(id);
+      return undefined;
     }
-    return undefined;
+    
+    return session;
   }
 
   async deleteSession(id: string): Promise<void> {
+    if (typeof id !== 'string' || id.length === 0) {
+      return;
+    }
     this.sessions.delete(id);
   }
 
-  async deleteExpiredSessions(): Promise<void> {
+  async cleanupExpiredSessions(): Promise<void> {
     const now = new Date();
     for (const [id, session] of this.sessions.entries()) {
       if (session.expiresAt <= now) {
         this.sessions.delete(id);
       }
     }
+  }
+
+  // Keep old method for backward compatibility
+  async deleteExpiredSessions(): Promise<void> {
+    return this.cleanupExpiredSessions();
   }
 }
 

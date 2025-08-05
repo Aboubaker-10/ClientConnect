@@ -11,22 +11,40 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  timeout: number = 10000
 ): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    // Use same domain as ERPNext when deployed
+    const apiUrl = url.startsWith('/api') ? `${window.location.origin}${url}` : url;
+    
+    const res = await fetch(apiUrl, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout');
+    }
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
+type QueryFnOptions = {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
+};
+
+export const getQueryFn = <T>(options: QueryFnOptions): QueryFunction<T> =>
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {

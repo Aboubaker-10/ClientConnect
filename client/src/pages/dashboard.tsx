@@ -1,6 +1,9 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useLanguage } from "@/contexts/language-context";
+import { translations, translateStatus } from "@/lib/translations";
+import { debounce, animationClasses } from "@/lib/performance";
 import { 
   Building, 
   Wallet, 
@@ -15,6 +18,8 @@ import {
   LogOut,
   Package
 } from "lucide-react";
+import { OrderDetailsModal } from "@/components/order-details-modal";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,14 +43,149 @@ interface DashboardData {
   };
 }
 
+// Extracted components for better maintainability
+interface AccountOverviewCardsProps {
+  metrics: {
+    totalOrders: number;
+    pendingInvoices: number;
+    pendingAmount: string;
+    accountBalance: string;
+    totalPaid: string;
+    totalUnpaid: string;
+  };
+  formatCurrency: (amount: string) => string;
+  t: any;
+}
+
+const AccountOverviewCards = ({ metrics, formatCurrency, t }: AccountOverviewCardsProps) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <Card className="portal-card border-portal">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <Wallet className="text-blue-600 text-lg" />
+          </div>
+          <Badge className="bg-green-100 text-green-800">{t.active}</Badge>
+        </div>
+        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
+          {t.accountBalance}
+        </h3>
+        <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
+          {formatCurrency(metrics.accountBalance)}
+        </p>
+      </CardContent>
+    </Card>
+    <Card className="portal-card border-portal">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+            <ShoppingCart style={{ color: 'var(--portal-primary)' }} className="text-lg" />
+          </div>
+        </div>
+        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
+          {t.totalOrders}
+        </h3>
+        <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
+          {metrics.totalOrders}
+        </p>
+      </CardContent>
+    </Card>
+    <Card className="portal-card border-portal">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+            <FileText className="text-yellow-600 text-lg" />
+          </div>
+          {metrics.pendingInvoices > 0 && (
+            <Badge className="bg-yellow-100 text-yellow-600">
+              {metrics.pendingInvoices} {t.pending}
+            </Badge>
+          )}
+        </div>
+        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
+          {t.totalUnpaid}
+        </h3>
+        <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
+          {formatCurrency(metrics.totalUnpaid)}
+        </p>
+      </CardContent>
+    </Card>
+    <Card className="portal-card border-portal">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <CreditCard style={{ color: 'var(--portal-secondary)' }} className="text-lg" />
+          </div>
+        </div>
+        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
+          {t.totalPaid}
+        </h3>
+        <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
+          {formatCurrency(metrics.totalPaid)}
+        </p>
+      </CardContent>
+    </Card>
+  </div>
+);
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { language } = useLanguage();
+  const t = translations[language].dashboard;
 
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ["/api/customer/dashboard"],
+    queryKey: ["dashboard"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/customer/dashboard");
+      return response.json();
+    },
     retry: false,
   });
+
+  // Memoized functions - must be called before any conditional returns
+  const getStatusColor = useMemo(() => {
+    const statusColors = {
+      delivered: 'bg-green-100 text-green-800',
+      paid: 'bg-green-100 text-green-800',
+      'in transit': 'bg-blue-100 text-blue-800',
+      processing: 'bg-blue-100 text-blue-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    return (status: string) => statusColors[status.toLowerCase() as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+  }, []);
+
+  const formatCurrency = useMemo(() => {
+    const formatter = new Intl.NumberFormat('fr-MA', {
+      style: 'currency',
+      currency: 'MAD',
+    });
+    return (amount: string) => formatter.format(parseFloat(amount));
+  }, []);
+
+  const formatDate = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    return (date: string | Date) => formatter.format(new Date(date));
+  }, []);
+
+  const handleOrderClick = useCallback(async (order: Order) => {
+    const response = await apiRequest("GET", `/api/customer/orders/${order.orderNumber}`);
+    const data = await response.json();
+    setSelectedOrder(data);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedOrder(null);
+  }, []);
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -58,8 +198,8 @@ export default function Dashboard() {
     },
     onError: () => {
       toast({
-        title: "Logout Error",
-        description: "Failed to logout properly",
+        title: t.logoutError,
+        description: t.failedToLogoutProperly,
         variant: "destructive",
       });
     },
@@ -67,9 +207,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (error) {
-      setLocation("/");
+      console.error('Dashboard error:', error);
+      toast({
+        title: t.error,
+        description: t.failedToLoadDashboardData,
+        variant: "destructive",
+      });
     }
-  }, [error, setLocation]);
+  }, [error, toast]);
 
   if (isLoading || !dashboardData) {
     return (
@@ -82,7 +227,7 @@ export default function Dashboard() {
                   <Building className="text-white text-lg" />
                 </div>
                 <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-                  Customer Portal
+                  {t.customerPortal}
                 </h1>
               </div>
             </div>
@@ -95,38 +240,6 @@ export default function Dashboard() {
 
   const { customer, recentOrders, recentInvoices, metrics } = dashboardData;
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-      case 'paid':
-        return 'bg-green-100 text-green-800';
-      case 'in transit':
-      case 'processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('fr-MA', {
-      style: 'currency',
-      currency: 'MAD',
-    }).format(parseFloat(amount));
-  };
-
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--portal-background)' }}>
       {/* Header */}
@@ -138,24 +251,24 @@ export default function Dashboard() {
                 <Building className="text-white text-lg" />
               </div>
               <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-                Customer Portal
+                {t.customerPortal}
               </h1>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-medium" style={{ color: 'var(--portal-text)' }}>
-                  {customer.name}
+                  {customer?.name || t.loadingEllipsis}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--portal-accent)' }}>
-                  {customer.id}
+                  {customer?.id || ''}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setLocation("/profile")}
-                className="transition duration-200"
+                className="transition-colors duration-150 ease-out"
                 style={{ color: 'var(--portal-accent)' }}
               >
                 <User className="h-4 w-4" />
@@ -165,11 +278,12 @@ export default function Dashboard() {
                 size="sm"
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
-                className="transition duration-200"
+                className="transition-colors duration-150 ease-out"
                 style={{ color: 'var(--portal-accent)' }}
               >
                 <LogOut className="h-4 w-4" />
               </Button>
+              <LanguageSwitcher />
             </div>
           </div>
         </div>
@@ -180,89 +294,15 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--portal-text)' }}>
-            Welcome back, {customer.name}
+            {t.welcome}, {customer?.name || 'Guest'}
           </h2>
           <p style={{ color: 'var(--portal-accent)' }}>
-            Here's an overview of your account and recent activity.
+            {t.description}
           </p>
         </div>
 
         {/* Account Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Account Balance */}
-          <Card className="portal-card border-portal">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Wallet className="text-blue-600 text-lg" />
-                </div>
-                <Badge className="bg-green-100 text-green-800">Active</Badge>
-              </div>
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Account Balance
-              </h3>
-              <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {formatCurrency(metrics.accountBalance)}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Total Orders */}
-          <Card className="portal-card border-portal">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <ShoppingCart style={{ color: 'var(--portal-primary)' }} className="text-lg" />
-                </div>
-              </div>
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Total Orders
-              </h3>
-              <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {metrics.totalOrders}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Pending Invoices */}
-          <Card className="portal-card border-portal">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <FileText className="text-yellow-600 text-lg" />
-                </div>
-                {metrics.pendingInvoices > 0 && (
-                  <Badge className="bg-yellow-100 text-yellow-600">
-                    {metrics.pendingInvoices} Pending
-                  </Badge>
-                )}
-              </div>
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Total Unpaid
-              </h3>
-              <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {formatCurrency(metrics.totalUnpaid)}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Total Paid */}
-          <Card className="portal-card border-portal">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CreditCard style={{ color: 'var(--portal-secondary)' }} className="text-lg" />
-                </div>
-              </div>
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--portal-accent)' }}>
-                Total Paid
-              </h3>
-              <p className="text-2xl font-bold" style={{ color: 'var(--portal-text)' }}>
-                {formatCurrency(metrics.totalPaid)}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {metrics && <AccountOverviewCards metrics={metrics} formatCurrency={formatCurrency} t={t} />}
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -271,28 +311,28 @@ export default function Dashboard() {
             <Card className="portal-card border-portal">
               <CardHeader className="border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between">
-                  <CardTitle style={{ color: 'var(--portal-text)' }}>Recent Orders</CardTitle>
+                  <CardTitle style={{ color: 'var(--portal-text)' }}>{t.recentOrders}</CardTitle>
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    className="text-sm font-medium transition duration-200"
+                    className="text-sm font-medium transition-colors duration-150 ease-out"
                     style={{ color: 'var(--portal-primary)' }}
                     onClick={() => setLocation("/orders")}
                   >
-                    View All
+                    {t.viewAll}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                {recentOrders.length === 0 ? (
+                {!recentOrders || recentOrders.length === 0 ? (
                   <div className="text-center py-8">
                     <Package className="mx-auto h-12 w-12 mb-4" style={{ color: 'var(--portal-accent)' }} />
-                    <p style={{ color: 'var(--portal-accent)' }}>No orders found</p>
+                    <p style={{ color: 'var(--portal-accent)' }}>{t.noOrdersFound}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {recentOrders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    {recentOrders?.map((order) => (
+                      <div key={order.id} className={`flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:shadow-md transition-optimized ${animationClasses.fadeIn}`} onClick={() => handleOrderClick(order)} style={{ animationDelay: `${order.id * 50}ms` }}>
                         <div className="flex items-center space-x-4">
                           <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--portal-primary)' }}>
                             <Package className="text-white text-sm" />
@@ -311,7 +351,7 @@ export default function Dashboard() {
                             {formatCurrency(order.amount)}
                           </p>
                           <Badge className={getStatusColor(order.status)}>
-                            {order.status}
+                            {translateStatus(order.status, language)}
                           </Badge>
                         </div>
                       </div>
@@ -327,32 +367,32 @@ export default function Dashboard() {
             {/* Account Details */}
             <Card className="portal-card border-portal">
               <CardHeader>
-                <CardTitle style={{ color: 'var(--portal-text)' }}>Account Details</CardTitle>
+                <CardTitle style={{ color: 'var(--portal-text)' }}>{t.accountDetails}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>Customer ID</p>
-                  <p style={{ color: 'var(--portal-text)' }}>{customer.id}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>{t.customerId}</p>
+                  <p style={{ color: 'var(--portal-text)' }}>{customer?.id || ''}</p>
                 </div>
-                {customer.company && (
+                {customer?.company && (
                   <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>Company</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>{t.company}</p>
                     <p style={{ color: 'var(--portal-text)' }}>{customer.company}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>Contact Person</p>
-                  <p style={{ color: 'var(--portal-text)' }}>{customer.name}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>{t.contactPerson}</p>
+                  <p style={{ color: 'var(--portal-text)' }}>{customer?.name || ''}</p>
                 </div>
-                {customer.email && (
+                {customer?.email && (
                   <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>Email</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>{t.email}</p>
                     <p style={{ color: 'var(--portal-text)' }}>{customer.email}</p>
                   </div>
                 )}
-                {customer.phone && (
+                {customer?.phone && (
                   <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>Phone</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--portal-accent)' }}>{t.phone}</p>
                     <p style={{ color: 'var(--portal-text)' }}>{customer.phone}</p>
                   </div>
                 )}
@@ -363,27 +403,27 @@ export default function Dashboard() {
             <Card className="portal-card border-portal">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle style={{ color: 'var(--portal-text)' }}>Recent Invoices</CardTitle>
+                  <CardTitle style={{ color: 'var(--portal-text)' }}>{t.recentInvoices}</CardTitle>
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    className="text-sm font-medium transition duration-200"
+                    className="text-sm font-medium transition-colors duration-150 ease-out"
                     style={{ color: 'var(--portal-primary)' }}
                     onClick={() => setLocation("/invoices")}
                   >
-                    View All
+                    {t.viewAll}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {recentInvoices.length === 0 ? (
+                {!recentInvoices || recentInvoices.length === 0 ? (
                   <div className="text-center py-4">
                     <FileText className="mx-auto h-8 w-8 mb-2" style={{ color: 'var(--portal-accent)' }} />
-                    <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>No invoices found</p>
+                    <p className="text-sm" style={{ color: 'var(--portal-accent)' }}>{t.noInvoicesFound}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {recentInvoices.map((invoice) => (
+                    {recentInvoices?.map((invoice) => (
                       <div key={invoice.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
                           <p className="font-medium text-sm" style={{ color: 'var(--portal-text)' }}>
@@ -398,7 +438,7 @@ export default function Dashboard() {
                             {formatCurrency(invoice.amount)}
                           </p>
                           <Badge className={`text-xs ${getStatusColor(invoice.status)}`}>
-                            {invoice.status}
+                            {translateStatus(invoice.status, language)}
                           </Badge>
                         </div>
                       </div>
@@ -413,23 +453,23 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <Card className="mt-8 portal-card border-portal">
           <CardHeader>
-            <CardTitle style={{ color: 'var(--portal-text)' }}>Quick Actions</CardTitle>
+            <CardTitle style={{ color: 'var(--portal-text)' }}>{t.quickActions}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Button variant="outline" className="flex items-center justify-center space-x-2 p-4 h-auto">
                 <Download style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Download Statement</span>
+                <span className="text-sm font-medium">{t.downloadStatement}</span>
               </Button>
               
               <Button variant="outline" className="flex items-center justify-center space-x-2 p-4 h-auto">
                 <History style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Payment History</span>
+                <span className="text-sm font-medium">{t.paymentHistory}</span>
               </Button>
               
               <Button variant="outline" className="flex items-center justify-center space-x-2 p-4 h-auto">
                 <Headphones style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Contact Support</span>
+                <span className="text-sm font-medium">{t.contactSupport}</span>
               </Button>
               
               <Button 
@@ -438,12 +478,17 @@ export default function Dashboard() {
                 onClick={() => setLocation("/products")}
               >
                 <Package style={{ color: 'var(--portal-primary)' }} className="h-4 w-4" />
-                <span className="text-sm font-medium">Browse Products</span>
+                <span className="text-sm font-medium">{t.browseProducts}</span>
               </Button>
             </div>
           </CardContent>
         </Card>
       </main>
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

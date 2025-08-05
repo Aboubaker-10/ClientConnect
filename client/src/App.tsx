@@ -3,35 +3,63 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Login from "@/pages/login";
-import Dashboard from "@/pages/dashboard";
-import Orders from "@/pages/orders";
-import Invoices from "@/pages/invoices";
-import Profile from "@/pages/profile";
-import PlaceOrder from "@/pages/place-order";
-import NotFound from "@/pages/not-found";
+import { LanguageProvider } from "@/contexts/language-context";
+import { AuthGuard } from "@/components/auth-guard";
+import { lazy, Suspense } from "react";
+
+const Login = lazy(() => import("@/pages/login"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Orders = lazy(() => import("@/pages/orders"));
+const Invoices = lazy(() => import("@/pages/invoices"));
+const Profile = lazy(() => import("@/pages/profile"));
+const PlaceOrder = lazy(() => import("@/pages/place-order"));
+const NotFound = lazy(() => import("@/pages/not-found"));
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Login} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/orders" component={Orders} />
-      <Route path="/invoices" component={Invoices} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/products" component={PlaceOrder} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<div>Loading...</div>}>
+      <Switch>
+        <Route path="/" component={Login} />
+        <Route path="/dashboard">
+          <AuthGuard>
+            <Dashboard />
+          </AuthGuard>
+        </Route>
+        <Route path="/orders">
+          <AuthGuard>
+            <Orders />
+          </AuthGuard>
+        </Route>
+        <Route path="/invoices">
+          <AuthGuard>
+            <Invoices />
+          </AuthGuard>
+        </Route>
+        <Route path="/profile">
+          <AuthGuard>
+            <Profile />
+          </AuthGuard>
+        </Route>
+        <Route path="/products">
+          <AuthGuard>
+            <PlaceOrder />
+          </AuthGuard>
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

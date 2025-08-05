@@ -1,0 +1,82 @@
+{
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Server",
+            "program": "${workspaceFolder}/${input:serverEntry}",
+            "cwd": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--loader",
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Server",
+            "program": "${workspaceFolder}/${input:serverEntry}",
+            "cwd": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--loader",
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Server",
+            "program": "${workspaceFolder}/${input:serverEntry}",
+            "cwd": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--loader",
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Server",
+            "program": "${workspaceFolder}/${input:serverEntry}",
+            "cwd": "${workspaceFolder}",
+            "runtimeArgs": [
+                "--loader",
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "type": "promptString",
+            "id": "serverEntry",
+            "description": "Enter the path to your server entry file (e.g., server/index.ts)"
+        },
+        {
+            "type": "promptString",
+            "id": "serverEntry",
+            "description": "Enter the path to your server entry file (e.g., server/index.ts)"
+        },
+        {
+            "type": "promptString",
+            "id": "serverEntry",
+            "description": "Enter the path to your server entry file (e.g., server/index.ts)"
+        },
+        {
+            "type": "promptString",
+            "id": "serverEntry",
+            "description": "Enter the path to your server entry file (e.g., server/index.ts)"
+        }
+    ]
+}

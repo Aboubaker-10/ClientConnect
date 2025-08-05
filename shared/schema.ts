@@ -1,7 +1,29 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Status enums for better type safety
+export const CustomerStatus = {
+  ACTIVE: 'Active',
+  INACTIVE: 'Inactive',
+} as const;
+
+export const OrderStatus = {
+  DRAFT: 'Draft',
+  PROCESSING: 'Processing',
+  IN_TRANSIT: 'In Transit',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+} as const;
+
+export const InvoiceStatus = {
+  DRAFT: 'Draft',
+  PENDING: 'Pending',
+  PAID: 'Paid',
+  OVERDUE: 'Overdue',
+  CANCELLED: 'Cancelled',
+} as const;
 
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey(),
@@ -11,7 +33,7 @@ export const customers = pgTable("customers", {
   phone: text("phone"),
   balance: decimal("balance", { precision: 12, scale: 2 }).default("0.00"),
   creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }).default("0.00"),
-  status: text("status").default("Active"),
+  status: text("status").default(CustomerStatus.ACTIVE).$type<CustomerStatusType>(),
   lastLogin: timestamp("last_login"),
   primary_address: jsonb("primary_address"),
 });
@@ -70,3 +92,6 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
+export type CustomerStatusType = typeof CustomerStatus[keyof typeof CustomerStatus];
+export type OrderStatusType = typeof OrderStatus[keyof typeof OrderStatus];
+export type InvoiceStatusType = typeof InvoiceStatus[keyof typeof InvoiceStatus];

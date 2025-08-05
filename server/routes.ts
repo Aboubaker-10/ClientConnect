@@ -4,8 +4,31 @@ import { storage } from "./storage";
 import { erpNextService } from "./services/erpnext";
 import { loginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
+import csrf from "csrf";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // CSRF protection
+  const tokens = new csrf();
+  const secret = tokens.secretSync();
+  
+  const csrfProtection = (req: any, res: any, next: any) => {
+    if (req.method === 'GET') {
+      return next();
+    }
+    
+    const token = req.headers['x-csrf-token'] || req.body._csrf;
+    if (!token || !tokens.verify(secret, token)) {
+      return res.status(403).json({ message: 'Invalid CSRF token' });
+    }
+    next();
+  };
+  
+  // CSRF token endpoint
+  app.get('/api/csrf-token', (req, res) => {
+    const token = tokens.create(secret);
+    res.json({ csrfToken: token });
+  });
   
   // Clean up expired sessions periodically
   setInterval(() => {
@@ -51,6 +74,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         customer: {
+          id: sanitizeOutput(String(customer.id)),
+          name: sanitizeOutput(String(customer.name)),
+          company: sanitizeOutput(String(customer.company || '')),
+          email: sanitizeOutput(String(customer.email || ''))
+        }
+      });
+    } catch (error) {
+      console.error('Login error:', sanitizeLogInput(String(error)));
+      res.status(400).json({ 
+        message: "Login failed. Please try again." 
+      });
+    }
+  });
+
+  // Auth check endpoint
+  app.get("/api/auth/check", async (req, res) => {
+    try {
+      const sessionId = req.cookies.sessionId;
+      if (!sessionId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        res.clearCookie('sessionId');
+        return res.status(401).json({ message: "Session expired" });
+      }
+
+      const customer = await storage.getCustomer(session.customerId);
+      if (!customer) {
+        return res.status(401).json({ message: "Customer not found" });
+      }
+
+      res.json({ 
+        authenticated: true, 
+        customer: {
           id: customer.id,
           name: customer.name,
           company: customer.company,
@@ -58,10 +117,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(400).json({ 
-        message: "Login failed. Please try again." 
-      });
+      console.error('Auth check error:', error);
+      res.status(500).json({ message: "Authentication check failed" });
     }
   });
 
@@ -84,6 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function requireAuth(req: any, res: any, next: any) {
     try {
       const sessionId = req.cookies.sessionId;
+      console.log('Auth check - sessionId:', sessionId ? 'Present' : 'Missing');
       if (!sessionId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -104,6 +162,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get customer profile
 
+
+  // Get single customer order
+  app.get("/api/customer/orders/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const order = await erpNextService.getCustomerOrder(orderId);
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error('Order fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
 
   // Get customer orders
   app.get("/api/customer/orders", requireAuth, async (req: any, res) => {
@@ -154,14 +229,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get dashboard summary
   app.get("/api/customer/dashboard", requireAuth, async (req: any, res) => {
     try {
+      console.log('=== DASHBOARD REQUEST START ===');
+      console.log('Dashboard request for customer:', req.customerId);
       const customer = await storage.getCustomer(req.customerId);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
+      console.log('Customer found:', customer ? 'Yes' : 'No');
+      
+      let finalCustomer = customer;
+      if (!finalCustomer) {
+        console.log('Customer not found in storage, trying to fetch from ERPNext...');
+        finalCustomer = await erpNextService.getCustomer(req.customerId);
+        if (!finalCustomer) {
+          console.log('Customer not found in ERPNext either');
+          return res.status(404).json({ message: "Customer not found" });
+        }
+        console.log('Customer fetched from ERPNext:', finalCustomer.name);
       }
 
+      console.log('Fetching orders and invoices from ERPNext...');
       // Get ALL orders and invoices first
       const allOrders = await erpNextService.getCustomerOrders(req.customerId, 0);
       const allInvoices = await erpNextService.getCustomerInvoices(req.customerId, 0);
+      console.log(`Found ${allOrders.length} orders and ${allInvoices.length} invoices`);
 
       // Get recent data for dashboard display (first 5 from all data)
       const recentOrders = allOrders.slice(0, 5);
@@ -182,19 +270,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
       const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
-      res.json({
-        customer,
+      const dashboardData = {
+        customer: finalCustomer,
         recentOrders: recentOrders,
         recentInvoices: recentInvoices,
         metrics: {
           totalOrders,
           pendingInvoices: pendingInvoices.length,
           pendingAmount: pendingAmount.toFixed(2),
-          accountBalance: customer.balance || "0.00",
+          accountBalance: finalCustomer.balance || "0.00",
           totalPaid: paidAmount.toFixed(2),
           totalUnpaid: pendingAmount.toFixed(2),
         }
-      });
+      };
+      
+      console.log('=== SENDING DASHBOARD DATA ===');
+      console.log('Customer:', finalCustomer.name);
+      console.log('Orders:', recentOrders.length);
+      console.log('Invoices:', recentInvoices.length);
+      res.json(dashboardData);
     } catch (error) {
       console.error('Dashboard fetch error:', error);
       res.status(500).json({ message: "Failed to fetch dashboard data" });
@@ -211,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Try to get fresh data from ERPNext
       try {
-        console.log('Attempting to fetch ERPNext data for customer:', req.customerId);
+        console.log('Attempting to fetch ERPNext data for customer:', sanitizeLogInput(String(req.customerId)));
         const erpnextCustomer = await erpNextService.getCustomer(req.customerId);
         console.log('ERPNext customer data:', erpnextCustomer ? 'Found' : 'Not found');
         if (erpnextCustomer) {
@@ -229,8 +323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ customer: enrichedCustomer });
           return;
         }
-      } catch (erpError) {
-        console.log('ERPNext error for profile:', erpError.message);
+      } catch (erpError: any) {
+        console.log('ERPNext error for profile:', sanitizeLogInput(String(erpError?.message || 'Unknown error')));
       }
 
       // Fallback to stored data with default values
@@ -245,8 +339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Returning fallback customer data');
       res.json({ customer: fallbackCustomer });
-    } catch (error) {
-      console.error('Profile error:', error);
+    } catch (error: any) {
+      console.error('Profile error:', sanitizeLogInput(String(error?.message || 'Unknown error')));
       res.status(500).json({ message: "Failed to load profile" });
     }
   });
@@ -281,6 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency: 'MAD',
           stockQuantity: 999, // Default stock since stock_qty field not accessible
           category: item.item_group || 'General',
+          brand: item.brand,
           image: imageUrl
         };
       });
@@ -297,7 +392,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create order endpoint
-  app.post('/api/orders/create', requireAuth, async (req, res) => {
+  app.get('/api/brands', requireAuth, async (req, res) => {
+    try {
+      const brands = await erpNextService.getBrands();
+      res.json(brands);
+    } catch (error) {
+      console.error('Brands fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch brands" });
+    }
+  });
+
+  app.post('/api/orders/create', requireAuth, csrfProtection, async (req, res) => {
     try {
       const { items, total } = req.body;
       
@@ -311,10 +416,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Order created successfully"
       });
     } catch (error) {
-      console.error('Order creation error:', error);
+      console.error('Order creation error:', sanitizeLogInput(String(error)));
       res.status(500).json({ message: "Failed to create order" });
     }
   });
+
+  function sanitizeOutput(input: string): string {
+    return input.replace(/[<>"'&]/g, (match) => {
+      const entities: { [key: string]: string } = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '&': '&amp;'
+      };
+      return entities[match] || match;
+    });
+  }
+
+  function sanitizeLogInput(input: string): string {
+    return input.replace(/[\r\n\t]/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+  }
 
   const httpServer = createServer(app);
   return httpServer;

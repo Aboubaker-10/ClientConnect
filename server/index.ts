@@ -1,9 +1,12 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -24,11 +27,16 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        // Sanitize sensitive data before logging
+        const sanitizedResponse = sanitizeResponseForLogging(capturedJsonResponse);
+        logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      const MAX_LOG_LENGTH = 80;
+      const TRUNCATE_LENGTH = 79;
+      
+      if (logLine.length > MAX_LOG_LENGTH) {
+        logLine = logLine.slice(0, TRUNCATE_LENGTH) + "…";
       }
 
       log(logLine);
@@ -37,6 +45,23 @@ app.use((req, res, next) => {
 
   next();
 });
+
+function sanitizeResponseForLogging(response: any): any {
+  if (typeof response !== 'object' || response === null) {
+    return response;
+  }
+  
+  const sensitiveFields = ['password', 'token', 'sessionId', 'email', 'phone', 'address'];
+  const sanitized = { ...response };
+  
+  for (const field of sensitiveFields) {
+    if (field in sanitized) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+  
+  return sanitized;
+}
 
 (async () => {
   const server = await registerRoutes(app);
@@ -63,11 +88,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
 })();

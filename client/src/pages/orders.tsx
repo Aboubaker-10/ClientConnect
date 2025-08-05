@@ -1,26 +1,54 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/language-context";
+import { translations, translateStatus } from "@/lib/translations";
 import { ArrowLeft, Package, Calendar, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton";
 import type { Order } from "@shared/schema";
+import { OrderDetailsModal } from "@/components/order-details-modal";
+import { apiRequest } from "@/lib/queryClient";
+
+const sanitizeLogInput = (input: string): string => {
+  return input.replace(/[\r\n\t]/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+};
 
 export default function Orders() {
   const [, setLocation] = useLocation();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { language } = useLanguage();
+  const t = translations[language].dashboard;
 
   const { data: orders, isLoading, error } = useQuery<Order[]>({
-    queryKey: ["/api/customer/orders"],
+    queryKey: ["orders"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/customer/orders");
+      return response.json();
+    },
     retry: false,
   });
 
+  const handleRowClick = async (order: Order) => {
+    const response = await apiRequest("GET", `/api/customer/orders/${order.orderNumber}`);
+    const data = await response.json();
+    setSelectedOrder(data);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedOrder(null);
+  };
+
   useEffect(() => {
     if (error) {
-      setLocation("/");
+      console.error('Orders fetch error:', error);
     }
-  }, [error, setLocation]);
+  }, [error]);
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -75,11 +103,11 @@ export default function Orders() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>Back to Dashboard</span>
+                <span>{t.backToDashboard}</span>
               </Button>
             </div>
             <h1 className="text-xl font-semibold" style={{ color: 'var(--portal-text)' }}>
-              All Orders
+              {t.allOrders}
             </h1>
             <div className="w-32"></div>
           </div>
@@ -91,7 +119,7 @@ export default function Orders() {
         <Card className="portal-card border-portal">
           <CardHeader>
             <CardTitle style={{ color: 'var(--portal-text)' }}>
-              Order History ({orders.length} orders)
+              {t.orderHistory} ({orders.length} {t.orders})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -99,10 +127,10 @@ export default function Orders() {
               <div className="text-center py-12">
                 <Package className="mx-auto h-16 w-16 mb-4" style={{ color: 'var(--portal-accent)' }} />
                 <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--portal-text)' }}>
-                  No orders found
+                  {t.noOrdersFound}
                 </h3>
                 <p style={{ color: 'var(--portal-accent)' }}>
-                  You haven't placed any orders yet.
+                  {t.noOrdersPlaced}
                 </p>
               </div>
             ) : (
@@ -110,8 +138,9 @@ export default function Orders() {
                 {orders.map((order) => (
                   <div
                     key={order.id}
-                    className="border rounded-lg p-6 hover:shadow-md transition-shadow"
+                    className="border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
                     style={{ borderColor: 'var(--border)' }}
+                    onClick={() => handleRowClick(order)}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-4">
@@ -132,7 +161,7 @@ export default function Orders() {
                             {order.deliveryDate && (
                               <div className="flex items-center space-x-1">
                                 <span className="text-sm" style={{ color: 'var(--portal-accent)' }}>
-                                  Delivery: {formatDate(order.deliveryDate)}
+                                  {t.delivery}: {formatDate(order.deliveryDate)}
                                 </span>
                               </div>
                             )}
@@ -147,7 +176,7 @@ export default function Orders() {
                           </span>
                         </div>
                         <Badge className={getStatusColor(order.status)}>
-                          {order.status}
+                          {translateStatus(order.status, language)}
                         </Badge>
                       </div>
                     </div>
@@ -158,6 +187,11 @@ export default function Orders() {
           </CardContent>
         </Card>
       </main>
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

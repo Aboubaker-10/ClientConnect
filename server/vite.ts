@@ -8,15 +8,24 @@ import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
+const formatTime = () => {
+  return new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
   });
+};
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+const sanitizeLogInput = (input: string): string => {
+  return String(input).replace(/[\r\n\t]/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+};
+
+export function log(message: string, source = "express") {
+  const formattedTime = formatTime();
+  const sanitizedMessage = sanitizeLogInput(message);
+  const sanitizedSource = sanitizeLogInput(source);
+  console.log(`${formattedTime} [${sanitizedSource}] ${sanitizedMessage}`);
 }
 
 export async function setupVite(app: Express, server: Server) {
@@ -33,7 +42,10 @@ export async function setupVite(app: Express, server: Server) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
+        // Only exit for critical errors, not all errors
+        if (msg.includes('EADDRINUSE') || msg.includes('Cannot resolve')) {
+          process.exit(1);
+        }
       },
     },
     server: serverOptions,
@@ -42,7 +54,8 @@ export async function setupVite(app: Express, server: Server) {
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
+    // Sanitize URL to prevent XSS
+    const url = sanitizeUrl(req.originalUrl);
 
     try {
       const clientTemplate = path.resolve(
@@ -61,11 +74,31 @@ export async function setupVite(app: Express, server: Server) {
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
+      if (e instanceof Error) {
+        vite.ssrFixStacktrace(e);
+      }
       next(e);
     }
   });
 }
+
+const sanitizeUrl = (url: string): string => {
+  return url.replace(/[<>"'&]/g, (match) => {
+    const entities: { [key: string]: string } = {
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#x27;',
+      '&': '&amp;'
+    };
+    return entities[match] || match;
+  });
+};
+
+const validatePath = (requestedPath: string, basePath: string): boolean => {
+  const resolvedPath = path.resolve(basePath, requestedPath);
+  return resolvedPath.startsWith(path.resolve(basePath));
+};
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(import.meta.dirname, "public");
@@ -79,7 +112,11 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  app.use("*", (req, res) => {
+    const requestedFile = path.basename(req.path) || "index.html";
+    if (!validatePath(requestedFile, distPath)) {
+      return res.status(403).send('Forbidden');
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

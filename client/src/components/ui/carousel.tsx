@@ -75,13 +75,13 @@ const Carousel = React.forwardRef<
       setCanScrollNext(api.canScrollNext())
     }, [])
 
-    const scrollPrev = React.useCallback(() => {
+    const scrollPrev = () => {
       api?.scrollPrev()
-    }, [api])
+    }
 
-    const scrollNext = React.useCallback(() => {
+    const scrollNext = () => {
       api?.scrollNext()
-    }, [api])
+    }
 
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
